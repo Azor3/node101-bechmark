@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>node101 Benchmark — Blockchain RPC Load Tester</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+  a { color: var(--accent); text-decoration: none; }
+
+  /* Layout */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  .header-logo { font-size: 18px; font-weight: 700; color: var(--text); }
+  .header-logo span { color: var(--accent); }
+  .header-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 2px 10px; font-size: 11px; color: var(--muted); }
+  .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 53px); }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+  .content { padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+  /* Form elements */
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 7px 10px; font-size: 13px; outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  .form-group { margin-bottom: 12px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { opacity: 0.85; }
+  .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-full { width: 100%; }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 12px;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1s infinite; }
+  .status-dot.error { background: var(--red); }
+  .status-dot.done { background: var(--accent); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* KPI cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; }
+  .kpi-unit { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.yellow { color: var(--yellow); }
+  .kpi-value.accent { color: var(--accent); }
+
+  /* Charts */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px;
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .chart-container { position: relative; height: 200px; }
+
+  /* Method table */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .table-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface2); padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+  .badge-light { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-medium { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-heavy { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  /* History */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .history-item:hover { border-color: var(--accent); }
+  .history-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .history-chain { font-weight: 600; font-size: 13px; }
+  .history-time { font-size: 11px; color: var(--muted); }
+  .history-stats { display: flex; gap: 16px; font-size: 11px; color: var(--muted); }
+  .history-stat span { color: var(--text); font-weight: 500; }
+
+  /* Chain color dots */
+  .chain-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  /* Progress bar */
+  .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.5s; border-radius: 2px; }
+
+  /* Sync lag */
+  .sync-info { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 12px; }
+  .sync-ok { border-color: var(--green); }
+  .sync-warn { border-color: var(--yellow); }
+  .sync-err { border-color: var(--red); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Extra headers */
+  .collapsible-header { cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 12px; color: var(--muted); }
+  .collapsible-header:hover { color: var(--text); }
+  .collapsible-content { display: none; }
+  .collapsible-content.open { display: block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; }
+
+  .error-log { background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.3); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: var(--red); font-family: monospace; max-height: 120px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">node<span>101</span> benchmark</div>
+  <div class="header-badge">Blockchain RPC Load Tester</div>
+</div>
+
+<div class="main">
+  <!-- SIDEBAR: Config -->
+  <div class="sidebar">
+    <div>
+      <div class="section-title">Chain & Endpoint</div>
+      <div class="form-group">
+        <label>Blockchain</label>
+        <select id="chainSelect"></select>
+      </div>
+      <div class="form-group">
+        <label>RPC Endpoint URL</label>
+        <input type="text" id="endpointInput" placeholder="https://..." />
+      </div>
+
+      <div class="collapsible-header" onclick="toggleCollapsible('extraHeaders')">
+        <span>Extra Headers (optional)</span>
+        <span id="extraHeadersArrow">▶</span>
+      </div>
+      <div class="collapsible-content" id="extraHeaders">
+        <div class="form-group">
+          <label>JSON (e.g. {"Authorization": "Bearer ..."})</label>
+          <textarea id="extraHeadersInput" rows="3" placeholder='{"project_id": "your_key"}'
+            style="resize:vertical; font-family: monospace; font-size: 12px;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Test Parameters</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Duration (sec)</label>
+          <input type="number" id="durationInput" value="30" min="5" max="300" />
+        </div>
+        <div class="form-group">
+          <label>Target RPS</label>
+          <input type="number" id="rpsInput" value="20" min="1" max="1000" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Max Concurrency</label>
+        <input type="number" id="concurrencyInput" value="30" min="1" max="200" />
+      </div>
+    </div>
+
+    <div id="methodPreview">
+      <div class="section-title">Method Mix</div>
+      <div id="methodList" style="display:flex; flex-direction:column; gap:4px;"></div>
+    </div>
+
+    <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
+      <button class="btn btn-primary btn-full" id="startBtn" onclick="startBenchmark()">
+        ▶ Start Benchmark
+      </button>
+      <button class="btn btn-danger btn-full" id="stopBtn" onclick="stopBenchmark()" disabled>
+        ⏹ Stop
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="content">
+    <!-- Status -->
+    <div id="statusBar" class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Configure a test and click Start Benchmark.</span>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+        <div style="font-size:12px; color:var(--muted);" id="progressInfo"></div>
+        <button id="downloadBtn" class="btn btn-secondary" style="display:none; font-size:12px; padding:5px 12px;" onclick="downloadReport()">⬇ Download Report</button>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('live')">Live</div>
+      <div class="tab" onclick="switchTab('methods')">Methods</div>
+      <div class="tab" onclick="switchTab('history')">History</div>
+    </div>
+
+    <!-- LIVE TAB -->
+    <div id="tab-live" class="tab-panel active">
+      <div id="emptyState" class="empty-state">
+        <div class="empty-state-icon">⚡</div>
+        <h3>Ready to benchmark</h3>
+        <p>Select a chain, enter your RPC endpoint, and click Start Benchmark.</p>
+      </div>
+
+      <div id="liveContent" style="display:none;">
+        <div class="kpi-grid" id="kpiGrid">
+          <div class="kpi-card">
+            <div class="kpi-label">Current RPS</div>
+            <div class="kpi-value accent" id="kpiRPS">—</div>
+            <div class="kpi-unit">req/sec</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">p50 Latency</div>
+            <div class="kpi-value green" id="kpiP50">—</div>
+            <div class="kpi-unit">ms</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">p95 Latency</div>
+            <div class="kpi-value yellow" id="kpiP95">—</div>
+            <div class="kpi-unit">ms</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">p99 Latency</div>
+            <div class="kpi-value red" id="kpiP99">—</div>
+            <div class="kpi-unit">ms</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Error Rate</div>
+            <div class="kpi-value" id="kpiErrorRate">—</div>
+            <div class="kpi-unit">%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Requests</div>
+            <div class="kpi-value accent" id="kpiTotal">—</div>
+            <div class="kpi-unit">requests</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">In-Flight</div>
+            <div class="kpi-value" id="kpiInFlight">—</div>
+            <div class="kpi-unit">concurrent</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Sync Lag</div>
+            <div class="kpi-value" id="kpiSyncLag">—</div>
+            <div class="kpi-unit" id="kpiSyncLagUnit">blocks</div>
+          </div>
+        </div>
+
+        <div class="chart-grid" style="margin-top:16px;">
+          <div class="chart-card">
+            <div class="chart-title">Requests Per Second</div>
+            <div class="chart-container"><canvas id="rpsChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Latency Percentiles (ms)</div>
+            <div class="chart-container"><canvas id="latencyChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Error Rate (%)</div>
+            <div class="chart-container"><canvas id="errorChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">In-Flight Requests</div>
+            <div class="chart-container"><canvas id="inflightChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- METHODS TAB -->
+    <div id="tab-methods" class="tab-panel">
+      <div class="table-card">
+        <div class="table-header">Method Breakdown</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Category</th>
+                <th>Requests</th>
+                <th>Errors</th>
+                <th>Err %</th>
+                <th>p50 ms</th>
+                <th>p95 ms</th>
+                <th>p99 ms</th>
+                <th>avg ms</th>
+                <th>min ms</th>
+                <th>max ms</th>
+              </tr>
+            </thead>
+            <tbody id="methodTableBody">
+              <tr><td colspan="11" style="text-align:center; color:var(--muted); padding:32px;">No data yet. Start a benchmark to see method breakdown.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history" class="tab-panel">
+      <div id="historyEmpty" class="empty-state" style="padding:40px;">
+        <div class="empty-state-icon">📊</div>
+        <h3>No test history</h3>
+        <p>Completed tests will appear here.</p>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// APP STATE
+// ============================================================
+let chains = {};
+let currentSessionId = null;
+let eventSource = null;
+let testHistory = JSON.parse(localStorage.getItem('benchmark_history') || '[]');
+let currentDuration = 30;
+let testStartTime = null;
+let progressTimer = null;
+let lastSummary = null;
+
+// Chart data
+const MAX_POINTS = 60;
+const chartData = {
+  labels: [],
+  rps: [], p50: [], p95: [], p99: [],
+  errorRate: [], inFlight: [],
+};
+
+let rpsChart, latencyChart, errorChart, inflightChart;
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  const res = await fetch('/api/chains');
+  const list = await res.json();
+  list.forEach(c => chains[c.id] = c);
+
+  const sel = document.getElementById('chainSelect');
+  list.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+
+  sel.addEventListener('change', () => updateChainUI());
+  updateChainUI();
+  renderHistory();
+  initCharts();
+}
+
+function updateChainUI() {
+  const chain = chains[document.getElementById('chainSelect').value];
+  if (!chain) return;
+  document.getElementById('endpointInput').value = chain.defaultEndpoint || '';
+
+  const methodList = document.getElementById('methodList');
+  methodList.innerHTML = '';
+  chain.methods.forEach(m => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:3px 0;';
+    const totalWeight = chain.methods.reduce((s, x) => s + x.weight, 0);
+    const pct = Math.round((m.weight / totalWeight) * 100);
+    const catClass = { light: 'badge-light', medium: 'badge-medium', heavy: 'badge-heavy' }[m.category] || '';
+    row.innerHTML = `
+      <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="${m.name}">${m.name}</span>
+      <span style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+        <span class="badge ${catClass}">${m.category}</span>
+        <span style="color:var(--muted);">${pct}%</span>
+      </span>`;
+    methodList.appendChild(row);
+  });
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function initCharts() {
+  const defaults = {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 0 },
+    plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+    scales: {
+      x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+    },
+  };
+
+  rpsChart = new Chart(document.getElementById('rpsChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'RPS', data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+    options: { ...defaults },
+  });
+
+  latencyChart = new Chart(document.getElementById('latencyChart'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'p50', data: [], borderColor: '#3fb950', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+        { label: 'p95', data: [], borderColor: '#d29922', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+        { label: 'p99', data: [], borderColor: '#f85149', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+      ],
+    },
+    options: { ...defaults },
+  });
+
+  errorChart = new Chart(document.getElementById('errorChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Error %', data: [], borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+    options: { ...defaults },
+  });
+
+  inflightChart = new Chart(document.getElementById('inflightChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'In-Flight', data: [], borderColor: '#bc8cff', backgroundColor: 'rgba(188,140,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+    options: { ...defaults },
+  });
+}
+
+function pushChartPoint(elapsed, rps, p50, p95, p99, errorRate, inFlight) {
+  const label = `${elapsed}s`;
+  const charts = [rpsChart, latencyChart, errorChart, inflightChart];
+  charts.forEach(c => {
+    if (c.data.labels.length >= MAX_POINTS) {
+      c.data.labels.shift();
+      c.data.datasets.forEach(d => d.data.shift());
+    }
+  });
+
+  rpsChart.data.labels.push(label);
+  rpsChart.data.datasets[0].data.push(rps);
+  rpsChart.update('none');
+
+  latencyChart.data.labels.push(label);
+  latencyChart.data.datasets[0].data.push(p50);
+  latencyChart.data.datasets[1].data.push(p95);
+  latencyChart.data.datasets[2].data.push(p99);
+  latencyChart.update('none');
+
+  errorChart.data.labels.push(label);
+  errorChart.data.datasets[0].data.push(parseFloat(errorRate));
+  errorChart.update('none');
+
+  inflightChart.data.labels.push(label);
+  inflightChart.data.datasets[0].data.push(inFlight);
+  inflightChart.update('none');
+}
+
+function resetCharts() {
+  [rpsChart, latencyChart, errorChart, inflightChart].forEach(c => {
+    c.data.labels = [];
+    c.data.datasets.forEach(d => d.data = []);
+    c.update('none');
+  });
+}
+
+// ============================================================
+// BENCHMARK CONTROL
+// ============================================================
+async function startBenchmark() {
+  const chainId = document.getElementById('chainSelect').value;
+  const endpoint = document.getElementById('endpointInput').value.trim();
+  if (!endpoint) { alert('Enter an RPC endpoint URL.'); return; }
+
+  let extraHeaders = {};
+  const headersRaw = document.getElementById('extraHeadersInput').value.trim();
+  if (headersRaw) {
+    try { extraHeaders = JSON.parse(headersRaw); }
+    catch { alert('Invalid JSON in Extra Headers.'); return; }
+  }
+
+  currentDuration = parseInt(document.getElementById('durationInput').value) || 30;
+  const targetRPS = parseInt(document.getElementById('rpsInput').value) || 20;
+  const concurrency = parseInt(document.getElementById('concurrencyInput').value) || 30;
+
+  // Reset UI
+  resetCharts();
+  updateKPIs({});
+  setStatus('running', 'Seeding context...');
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('liveContent').style.display = 'block';
+  testStartTime = Date.now();
+
+  startProgressTimer(currentDuration);
+
+  // Start backend session
+  const res = await fetch('/api/benchmark/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chainId, endpoint, targetRPS, duration: currentDuration, concurrency, extraHeaders }),
+  });
+  const { sessionId } = await res.json();
+  currentSessionId = sessionId;
+
+  // Subscribe to SSE
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource(`/api/benchmark/stream/${sessionId}`);
+
+  eventSource.addEventListener('status', e => {
+    const d = JSON.parse(e.data);
+    if (d.status === 'running') setStatus('running', `Running... (${chainId} @ ${endpoint})`);
+  });
+
+  eventSource.addEventListener('progress', e => {
+    const d = JSON.parse(e.data);
+    updateKPIs(d);
+    updateMethodTable(d.methodBreakdown, chains[chainId]);
+    pushChartPoint(d.elapsed, d.rps, d.latency.p50, d.latency.p95, d.latency.p99, d.errorRate, d.inFlight);
+  });
+
+  eventSource.addEventListener('done', e => {
+    const d = JSON.parse(e.data);
+    lastSummary = d;
+    setStatus('done', `Done — ${d.totalRequests} requests, avg ${d.avgRPS} RPS, p95: ${d.latency.p95}ms`);
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('downloadBtn').style.display = 'inline-flex';
+    clearInterval(progressTimer);
+    document.getElementById('progressFill').style.width = '100%';
+    addHistory(d);
+    eventSource.close();
+  });
+
+  eventSource.addEventListener('error', () => {
+    setStatus('error', 'Connection error. Is the server running?');
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    clearInterval(progressTimer);
+  });
+}
+
+async function stopBenchmark() {
+  if (!currentSessionId) return;
+  await fetch(`/api/benchmark/stop/${currentSessionId}`, { method: 'POST' });
+  document.getElementById('stopBtn').disabled = true;
+  clearInterval(progressTimer);
+}
+
+function startProgressTimer(duration) {
+  clearInterval(progressTimer);
+  const start = Date.now();
+  progressTimer = setInterval(() => {
+    const elapsed = (Date.now() - start) / 1000;
+    const pct = Math.min(100, (elapsed / duration) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressInfo').textContent = `${Math.round(elapsed)}s / ${duration}s`;
+    if (elapsed >= duration) clearInterval(progressTimer);
+  }, 500);
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function setStatus(type, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + (type === 'running' ? 'running' : type === 'done' ? 'done' : type === 'error' ? 'error' : '');
+  document.getElementById('statusText').textContent = msg;
+}
+
+function updateKPIs(d) {
+  if (!d.rps && d.rps !== 0) return;
+
+  const errPct = parseFloat(d.errorRate);
+  document.getElementById('kpiRPS').textContent = d.rps ?? '—';
+  document.getElementById('kpiP50').textContent = d.latency?.p50 ?? '—';
+  document.getElementById('kpiP95').textContent = d.latency?.p95 ?? '—';
+  document.getElementById('kpiP99').textContent = d.latency?.p99 ?? '—';
+
+  const errEl = document.getElementById('kpiErrorRate');
+  errEl.textContent = d.errorRate ?? '—';
+  errEl.className = 'kpi-value ' + (errPct > 5 ? 'red' : errPct > 1 ? 'yellow' : 'green');
+
+  document.getElementById('kpiTotal').textContent = d.totalRequests ?? '—';
+  document.getElementById('kpiInFlight').textContent = d.inFlight ?? '—';
+
+  const syncEl = document.getElementById('kpiSyncLag');
+  if (d.syncLag !== null && d.syncLag !== undefined) {
+    syncEl.textContent = d.syncLag;
+    syncEl.className = 'kpi-value ' + (Math.abs(d.syncLag) > 10 ? 'red' : Math.abs(d.syncLag) > 2 ? 'yellow' : 'green');
+  } else {
+    syncEl.textContent = '—';
+    syncEl.className = 'kpi-value';
+  }
+}
+
+function updateMethodTable(breakdown, chain) {
+  if (!breakdown) return;
+  const tbody = document.getElementById('methodTableBody');
+  tbody.innerHTML = '';
+
+  const methodCategories = {};
+  if (chain) chain.methods.forEach(m => methodCategories[m.name] = m.category);
+
+  for (const [name, stats] of Object.entries(breakdown)) {
+    if (!stats.requests) continue;
+    const cat = methodCategories[name] || 'unknown';
+    const catClass = { light: 'badge-light', medium: 'badge-medium', heavy: 'badge-heavy' }[cat] || '';
+    const errPct = parseFloat(stats.errorRate);
+    const errColor = errPct > 5 ? 'var(--red)' : errPct > 1 ? 'var(--yellow)' : 'var(--green)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:monospace; font-size:11px;">${name}</td>
+      <td><span class="badge ${catClass}">${cat}</span></td>
+      <td>${stats.requests}</td>
+      <td style="color:${stats.errors > 0 ? 'var(--red)' : 'var(--muted)'};">${stats.errors}</td>
+      <td style="color:${errColor};">${stats.errorRate}%</td>
+      <td style="color:var(--green);">${stats.p50}</td>
+      <td style="color:var(--yellow);">${stats.p95}</td>
+      <td style="color:var(--red);">${stats.p99}</td>
+      <td>${stats.avg}</td>
+      <td style="color:var(--muted);">${stats.min}</td>
+      <td style="color:var(--muted);">${stats.max}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function addHistory(summary) {
+  testHistory.unshift(summary);
+  if (testHistory.length > 20) testHistory = testHistory.slice(0, 20);
+  localStorage.setItem('benchmark_history', JSON.stringify(testHistory));
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+  container.innerHTML = '';
+
+  if (!testHistory.length) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  testHistory.forEach((h, i) => {
+    const chain = chains[h.chainId];
+    const color = chain?.color || '#58a6ff';
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-chain">
+          <span class="chain-dot" style="background:${color};"></span>
+          ${h.chainName}
+        </span>
+        <span class="history-time">${new Date(h.timestamp).toLocaleString()}</span>
+      </div>
+      <div class="history-stats">
+        <div>Avg RPS <span>${h.avgRPS}</span></div>
+        <div>p95 <span>${h.latency.p95}ms</span></div>
+        <div>p99 <span>${h.latency.p99}ms</span></div>
+        <div>Errors <span style="color:${parseFloat(h.errorRate) > 1 ? 'var(--red)' : 'var(--green)'};">${h.errorRate}%</span></div>
+        <div>Duration <span>${h.duration}s</span></div>
+        <div>Total <span>${h.totalRequests}</span></div>
+      </div>
+      <div style="margin-top:6px; font-size:11px; color:var(--muted); font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${h.endpoint}</div>`;
+    div.onclick = () => showHistoryDetail(h);
+    container.appendChild(div);
+  });
+}
+
+function showHistoryDetail(h) {
+  switchTab('methods');
+  const chain = chains[h.chainId];
+  updateMethodTable(h.methodBreakdown, chain);
+  setStatus('done', `[History] ${h.chainName} — ${h.totalRequests} requests, avg ${h.avgRPS} RPS, p95: ${h.latency.p95}ms`);
+}
+
+// ============================================================
+// TABS & COLLAPSIBLE
+// ============================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['live', 'methods', 'history'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${name}`);
+  });
+}
+
+function toggleCollapsible(id) {
+  const content = document.getElementById(id);
+  const arrow = document.getElementById(id + 'Arrow');
+  const open = content.classList.toggle('open');
+  if (arrow) arrow.textContent = open ? '▼' : '▶';
+}
+
+// ============================================================
+// REPORT GENERATOR
+// ============================================================
+function downloadReport() {
+  if (!lastSummary) return;
+  const html = buildReportHtml(lastSummary);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date(lastSummary.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url;
+  a.download = `benchmark-${lastSummary.chainId}-${ts}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildReportHtml(s) {
+  const chain = chains[s.chainId] || {};
+  const chainColor = chain.color || '#58a6ff';
+  const ts = new Date(s.timestamp);
+
+  // Build method rows
+  const methodRows = Object.entries(s.methodBreakdown).map(([name, m]) => {
+    const cat = (chain.methods || []).find(x => x.name === name)?.category || 'unknown';
+    const catColors = { light: '#3fb950', medium: '#d29922', heavy: '#f85149' };
+    const catColor = catColors[cat] || '#8b949e';
+    const errPct = parseFloat(m.errorRate);
+    const errColor = errPct > 5 ? '#f85149' : errPct > 1 ? '#d29922' : '#3fb950';
+    const successCount = m.requests - m.errors;
+    const successRate = m.requests ? (100 - errPct).toFixed(1) : '0.0';
+    return `
+      <tr>
+        <td style="font-family:monospace;font-size:12px;color:#e6edf3;">${name}</td>
+        <td><span style="background:${catColor}22;color:${catColor};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase;">${cat}</span></td>
+        <td style="text-align:right;">${m.requests.toLocaleString()}</td>
+        <td style="text-align:right;color:#3fb950;">${successCount.toLocaleString()}</td>
+        <td style="text-align:right;color:#3fb950;">${successRate}%</td>
+        <td style="text-align:right;color:${m.errors > 0 ? '#f85149' : '#8b949e'};">${m.errors.toLocaleString()}</td>
+        <td style="text-align:right;color:${errColor};">${m.errorRate}%</td>
+        <td style="text-align:right;color:#3fb950;">${m.p50}</td>
+        <td style="text-align:right;color:#d29922;">${m.p95}</td>
+        <td style="text-align:right;color:#f85149;">${m.p99}</td>
+        <td style="text-align:right;">${m.avg}</td>
+        <td style="text-align:right;color:#8b949e;">${m.min}</td>
+        <td style="text-align:right;color:#8b949e;">${m.max}</td>
+      </tr>`;
+  }).join('');
+
+  // Build method distribution pie data
+  const pieLabels = JSON.stringify(Object.keys(s.methodBreakdown));
+  const pieData = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.requests));
+  const pieColors = JSON.stringify(Object.keys(s.methodBreakdown).map((_, i) => {
+    const palette = ['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#00d4aa','#ff7b72','#ffa657','#79c0ff','#56d364','#e3b341','#ff6e6e'];
+    return palette[i % palette.length];
+  }));
+
+  // Time series for charts
+  const tsLabels = JSON.stringify((s.timeSeries || []).map(p => `${p.elapsed}s`));
+  const tsRPS = JSON.stringify((s.timeSeries || []).map(p => p.rps));
+  const tsP50 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p50 || 0));
+  const tsP95 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p95 || 0));
+  const tsP99 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p99 || 0));
+  const tsErr = JSON.stringify((s.timeSeries || []).map(p => parseFloat(p.errorRate) || 0));
+
+  // Method latency comparison bar chart
+  const barMethods = JSON.stringify(Object.keys(s.methodBreakdown));
+  const barP50 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p50));
+  const barP95 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p95));
+  const barP99 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p99));
+
+  const successTotal = s.totalRequests - s.totalErrors;
+  const successRate = s.totalRequests ? (100 - parseFloat(s.errorRate)).toFixed(1) : '0.0';
+  const errRateColor = parseFloat(s.errorRate) > 5 ? '#f85149' : parseFloat(s.errorRate) > 1 ? '#d29922' : '#3fb950';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Benchmark Report — ${s.chainName} — ${ts.toLocaleString()}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 24px; font-weight: 700; }
+  h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; margin-bottom: 16px; }
+  .header { border-bottom: 1px solid #30363d; padding-bottom: 24px; margin-bottom: 32px; }
+  .header-meta { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 12px; font-size: 13px; color: #8b949e; }
+  .header-meta span { color: #e6edf3; font-weight: 500; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .kpi { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .kpi-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .kpi-value { font-size: 30px; font-weight: 700; line-height: 1; }
+  .kpi-unit { font-size: 12px; color: #8b949e; margin-top: 4px; }
+  .section { margin-bottom: 36px; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .chart-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-title { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
+  .chart-wrap { position: relative; height: 220px; }
+  .table-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #21262d; padding: 9px 12px; text-align: left; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; white-space: nowrap; }
+  th.num { text-align: right; }
+  td { padding: 9px 12px; border-bottom: 1px solid #21262d; font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { background: #21262d; border: 1px solid #30363d; border-radius: 12px; padding: 2px 10px; font-size: 11px; color: #8b949e; }
+  .chain-pill { display: inline-flex; align-items: center; gap: 8px; background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 4px 14px 4px 10px; font-weight: 600; font-size: 15px; }
+  .chain-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #30363d; font-size: 12px; color: #8b949e; display: flex; justify-content: space-between; }
+  @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+  .summary-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px; }
+  .summary-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 180px; }
+  .summary-box-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .summary-box-value { font-size: 13px; font-weight: 500; font-family: monospace; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <h1>Benchmark Report</h1>
+      <div class="chain-pill">
+        <span class="chain-dot" style="background:${chainColor};"></span>
+        ${s.chainName}
+      </div>
+      <span class="badge">node101 benchmark</span>
+    </div>
+    <div class="header-meta">
+      <div>Date <span>${ts.toLocaleString()}</span></div>
+      <div>Duration <span>${s.duration}s</span></div>
+      <div>Target RPS <span>${s.config?.targetRPS || '—'}</span></div>
+      <div>Max Concurrency <span>${s.config?.concurrency || '—'}</span></div>
+      <div>Endpoint <span style="font-family:monospace;font-size:12px;">${s.endpoint}</span></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY CONFIG -->
+  <div class="section">
+    <h2>Test Configuration</h2>
+    <div class="summary-row">
+      <div class="summary-box"><div class="summary-box-label">Endpoint</div><div class="summary-box-value">${s.endpoint}</div></div>
+      <div class="summary-box"><div class="summary-box-label">Chain</div><div class="summary-box-value">${s.chainName} (${s.chainId})</div></div>
+      <div class="summary-box"><div class="summary-box-label">Duration</div><div class="summary-box-value">${s.duration} seconds</div></div>
+      <div class="summary-box"><div class="summary-box-label">Target RPS</div><div class="summary-box-value">${s.config?.targetRPS || '—'}</div></div>
+      <div class="summary-box"><div class="summary-box-label">Max Concurrency</div><div class="summary-box-value">${s.config?.concurrency || '—'}</div></div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="section">
+    <h2>Summary Metrics</h2>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Avg RPS</div>
+        <div class="kpi-value" style="color:#58a6ff;">${s.avgRPS}</div>
+        <div class="kpi-unit">req / sec</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Total Requests</div>
+        <div class="kpi-value" style="color:#58a6ff;">${s.totalRequests.toLocaleString()}</div>
+        <div class="kpi-unit">total</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Successful</div>
+        <div class="kpi-value" style="color:#3fb950;">${successTotal.toLocaleString()}</div>
+        <div class="kpi-unit">${successRate}% success</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Errors</div>
+        <div class="kpi-value" style="color:${errRateColor};">${s.totalErrors.toLocaleString()}</div>
+        <div class="kpi-unit">${s.errorRate}% error rate</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">p50 Latency</div>
+        <div class="kpi-value" style="color:#3fb950;">${s.latency.p50}</div>
+        <div class="kpi-unit">ms (median)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">p95 Latency</div>
+        <div class="kpi-value" style="color:#d29922;">${s.latency.p95}</div>
+        <div class="kpi-unit">ms</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">p99 Latency</div>
+        <div class="kpi-value" style="color:#f85149;">${s.latency.p99}</div>
+        <div class="kpi-unit">ms (tail)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Avg Latency</div>
+        <div class="kpi-value">${s.latency.avg}</div>
+        <div class="kpi-unit">ms</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Min Latency</div>
+        <div class="kpi-value" style="color:#3fb950;">${s.latency.min}</div>
+        <div class="kpi-unit">ms</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Max Latency</div>
+        <div class="kpi-value" style="color:#f85149;">${s.latency.max}</div>
+        <div class="kpi-unit">ms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIME SERIES CHARTS -->
+  <div class="section">
+    <h2>Time Series</h2>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Requests Per Second</div>
+        <div class="chart-wrap"><canvas id="rpsChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Latency Percentiles (ms)</div>
+        <div class="chart-wrap"><canvas id="latencyChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Error Rate (%)</div>
+        <div class="chart-wrap"><canvas id="errorChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Method Distribution (by request count)</div>
+        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Latency by Method (p50 / p95 / p99)</div>
+        <div class="chart-wrap" style="height:280px;"><canvas id="methodLatencyChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METHOD TABLE -->
+  <div class="section">
+    <h2>Method Breakdown</h2>
+    <div class="table-card">
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Category</th>
+              <th class="num">Requests</th>
+              <th class="num">Success</th>
+              <th class="num">Success %</th>
+              <th class="num">Errors</th>
+              <th class="num">Error %</th>
+              <th class="num">p50 ms</th>
+              <th class="num">p95 ms</th>
+              <th class="num">p99 ms</th>
+              <th class="num">avg ms</th>
+              <th class="num">min ms</th>
+              <th class="num">max ms</th>
+            </tr>
+          </thead>
+          <tbody>${methodRows}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>Generated by node101 benchmark</span>
+    <span>${ts.toLocaleString()}</span>
+  </div>
+</div>
+
+<script>
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  animation: false,
+  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 15 }, grid: { color: '#21262d' } },
+    y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+  },
+};
+
+new Chart(document.getElementById('rpsChart'), {
+  type: 'line',
+  data: { labels: ${tsLabels}, datasets: [{ label: 'RPS', data: ${tsRPS}, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+  options: { ...chartDefaults },
+});
+
+new Chart(document.getElementById('latencyChart'), {
+  type: 'line',
+  data: {
+    labels: ${tsLabels},
+    datasets: [
+      { label: 'p50', data: ${tsP50}, borderColor: '#3fb950', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+      { label: 'p95', data: ${tsP95}, borderColor: '#d29922', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+      { label: 'p99', data: ${tsP99}, borderColor: '#f85149', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
+    ],
+  },
+  options: { ...chartDefaults },
+});
+
+new Chart(document.getElementById('errorChart'), {
+  type: 'line',
+  data: { labels: ${tsLabels}, datasets: [{ label: 'Error %', data: ${tsErr}, borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+  options: { ...chartDefaults },
+});
+
+new Chart(document.getElementById('pieChart'), {
+  type: 'doughnut',
+  data: { labels: ${pieLabels}, datasets: [{ data: ${pieData}, backgroundColor: ${pieColors}, borderColor: '#161b22', borderWidth: 2 }] },
+  options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { position: 'right', labels: { color: '#8b949e', font: { size: 11 }, padding: 10 } } },
+  },
+});
+
+new Chart(document.getElementById('methodLatencyChart'), {
+  type: 'bar',
+  data: {
+    labels: ${barMethods},
+    datasets: [
+      { label: 'p50', data: ${barP50}, backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 3 },
+      { label: 'p95', data: ${barP95}, backgroundColor: 'rgba(210,153,34,0.7)', borderRadius: 3 },
+      { label: 'p99', data: ${barP99}, backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 3 },
+    ],
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' }, title: { display: true, text: 'ms', color: '#8b949e' } },
+    },
+  },
+});
+<\/script>
+</body>
+</html>`;
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+init();
+</script>
+</body>
+</html>
