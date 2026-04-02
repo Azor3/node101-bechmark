@@ -6,168 +6,190 @@
 <title>node101 Benchmark — Blockchain RPC Load Tester</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  :root {
-    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
-    --border: #30363d; --text: #e6edf3; --muted: #8b949e;
-    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
-    --yellow: #d29922; --purple: #bc8cff;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
-  a { color: var(--accent); text-decoration: none; }
+:root {
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;
+  --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+  --accent:#58a6ff;--green:#3fb950;--red:#f85149;
+  --yellow:#d29922;--purple:#bc8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh;}
+a{color:var(--accent);text-decoration:none;}
 
-  /* Layout */
-  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
-  .header-logo { font-size: 18px; font-weight: 700; color: var(--text); }
-  .header-logo span { color: var(--accent); }
-  .header-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 2px 10px; font-size: 11px; color: var(--muted); }
-  .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 53px); }
-  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
-  .content { padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+/* Layout */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;}
+.header-logo{font-size:18px;font-weight:700;color:var(--text);}
+.header-logo span{color:var(--accent);}
+.header-badge{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--muted);}
+.main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 49px);}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;height:calc(100vh - 49px);position:sticky;top:0;}
+.content{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
 
-  /* Form elements */
-  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  input, select, textarea {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); padding: 7px 10px; font-size: 13px; outline: none;
-    transition: border-color 0.15s;
-  }
-  input:focus, select:focus { border-color: var(--accent); }
-  select option { background: var(--surface2); }
+/* Form */
+.section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:6px;}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:12px;outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+select option{background:var(--surface2);}
+.form-group{margin-bottom:8px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
 
-  .form-group { margin-bottom: 12px; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#0d1117;}
+.btn-primary:hover{opacity:.85;}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-danger:hover{opacity:.85;}
+.btn-danger:disabled{opacity:.4;cursor:not-allowed;}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text);}
+.btn-secondary:hover{border-color:var(--accent);}
+.btn-secondary:disabled{opacity:.4;cursor:not-allowed;}
+.btn-warning{background:#b45309;color:#fff;}
+.btn-warning:hover{opacity:.85;}
+.btn-full{width:100%;}
 
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
-    font-size: 13px; font-weight: 500; transition: all 0.15s;
-  }
-  .btn-primary { background: var(--accent); color: #0d1117; }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-danger { background: var(--red); color: #fff; }
-  .btn-danger:hover { opacity: 0.85; }
-  .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
-  .btn-secondary:hover { border-color: var(--accent); }
-  .btn-full { width: 100%; }
+/* Status */
+.status-bar{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:10px;font-size:12px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.status-dot.running{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1s infinite;}
+.status-dot.error{background:var(--red);}
+.status-dot.done{background:var(--accent);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 
-  /* Status bar */
-  .status-bar {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 12px;
-  }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .status-dot.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1s infinite; }
-  .status-dot.error { background: var(--red); }
-  .status-dot.done { background: var(--accent); }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.kpi-value{font-size:24px;font-weight:700;line-height:1;}
+.kpi-unit{font-size:11px;color:var(--muted);margin-top:2px;}
+.kpi-value.green{color:var(--green);}
+.kpi-value.red{color:var(--red);}
+.kpi-value.yellow{color:var(--yellow);}
+.kpi-value.accent{color:var(--accent);}
 
-  /* KPI cards */
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-  .kpi-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 14px 16px;
-  }
-  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; }
-  .kpi-unit { font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .kpi-value.green { color: var(--green); }
-  .kpi-value.red { color: var(--red); }
-  .kpi-value.yellow { color: var(--yellow); }
-  .kpi-value.accent { color: var(--accent); }
+/* Charts */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;}
+.chart-card.full-width{grid-column:1/-1;}
+.chart-title{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px;}
+.chart-container{position:relative;height:180px;}
 
-  /* Charts */
-  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .chart-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px;
-  }
-  .chart-card.full-width { grid-column: 1 / -1; }
-  .chart-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .chart-container { position: relative; height: 200px; }
+/* Method table */
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.table-header{padding:12px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--surface2);padding:7px 10px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;}
+.badge-light{background:rgba(63,185,80,.15);color:var(--green);}
+.badge-medium{background:rgba(210,153,34,.15);color:var(--yellow);}
+.badge-heavy{background:rgba(248,81,73,.15);color:var(--red);}
 
-  /* Method table */
-  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .table-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: var(--surface2); padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
-  td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
-  .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
-  .badge-light { background: rgba(63,185,80,0.15); color: var(--green); }
-  .badge-medium { background: rgba(210,153,34,0.15); color: var(--yellow); }
-  .badge-heavy { background: rgba(248,81,73,0.15); color: var(--red); }
+/* History */
+.history-item{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;cursor:pointer;transition:border-color .15s;margin-bottom:8px;}
+.history-item:hover{border-color:var(--accent);}
+.history-chain{font-weight:600;font-size:13px;}
+.history-time{font-size:11px;color:var(--muted);}
+.history-stats{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:4px;}
+.history-stat span{color:var(--text);font-weight:500;}
 
-  /* History */
-  .history-list { display: flex; flex-direction: column; gap: 8px; }
-  .history-item {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
-  }
-  .history-item:hover { border-color: var(--accent); }
-  .history-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .history-chain { font-weight: 600; font-size: 13px; }
-  .history-time { font-size: 11px; color: var(--muted); }
-  .history-stats { display: flex; gap: 16px; font-size: 11px; color: var(--muted); }
-  .history-stat span { color: var(--text); font-weight: 500; }
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);}
+.tab{padding:7px 14px;font-size:12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab:hover:not(.active){color:var(--text);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
 
-  /* Chain color dots */
-  .chain-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+/* Collapsible */
+.collapsible-header{cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:11px;color:var(--muted);user-select:none;}
+.collapsible-header:hover{color:var(--text);}
+.collapsible-content{display:none;padding-top:6px;}
+.collapsible-content.open{display:block;}
 
-  /* Progress bar */
-  .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
-  .progress-fill { height: 100%; background: var(--accent); transition: width 0.5s; border-radius: 2px; }
+/* Test type selector */
+.type-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:10px;}
+.type-tab{flex:1;padding:6px;text-align:center;font-size:11px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;}
+.type-tab.active{background:var(--accent);color:#0d1117;}
+.type-tab:hover:not(.active){background:var(--surface2);color:var(--text);}
 
-  /* Sync lag */
-  .sync-info { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 12px; }
-  .sync-ok { border-color: var(--green); }
-  .sync-warn { border-color: var(--yellow); }
-  .sync-err { border-color: var(--red); }
+/* REST endpoint builder */
+.rest-endpoint-row{display:grid;grid-template-columns:60px 1fr 50px 24px;gap:4px;align-items:center;margin-bottom:4px;}
+.rest-endpoint-row input,select{margin:0;}
+.rest-method-select{padding:4px 4px;font-size:11px;}
 
-  /* Tabs */
-  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-  .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .tab:hover:not(.active) { color: var(--text); }
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
+/* Queue panel */
+.queue-panel{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.queue-item{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:11px;}
+.queue-item-info{color:var(--muted);}
+.queue-item-name{color:var(--text);font-weight:500;}
+.cooldown-bar{height:3px;background:var(--surface);border-radius:2px;overflow:hidden;margin-top:6px;}
+.cooldown-fill{height:100%;background:var(--yellow);transition:width 1s linear;border-radius:2px;}
 
-  /* Extra headers */
-  .collapsible-header { cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 12px; color: var(--muted); }
-  .collapsible-header:hover { color: var(--text); }
-  .collapsible-content { display: none; }
-  .collapsible-content.open { display: block; }
+/* Progress */
+.progress-bar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);transition:width .5s;border-radius:2px;}
 
-  /* Responsive */
-  @media (max-width: 900px) {
-    .main { grid-template-columns: 1fr; }
-    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
-    .chart-grid { grid-template-columns: 1fr; }
-  }
+/* Reconnect banner */
+.reconnect-banner{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:12px;}
 
-  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
-  .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-  .empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
-  .empty-state p { font-size: 13px; }
+/* WS metrics */
+.ws-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
 
-  .error-log { background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.3); border-radius: 6px; padding: 10px 12px; font-size: 12px; color: var(--red); font-family: monospace; max-height: 120px; overflow-y: auto; }
+/* Empty state */
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-state-icon{font-size:40px;margin-bottom:12px;}
+.empty-state h3{font-size:15px;color:var(--text);margin-bottom:6px;}
+.empty-state p{font-size:12px;}
+
+/* Chain dot */
+.chain-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+
+/* Weight input */
+.weight-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0;}
+.weight-row input[type=number]{width:52px;text-align:center;padding:2px 4px;font-size:11px;}
+
+/* Divider */
+.divider{border:none;border-top:1px solid var(--border);margin:6px 0;}
+
+@media(max-width:900px){
+  .main{grid-template-columns:1fr;}
+  .sidebar{height:auto;position:static;}
+  .chart-grid{grid-template-columns:1fr;}
+}
 </style>
 </head>
 <body>
 
 <div class="header">
   <div class="header-logo">node<span>101</span> benchmark</div>
-  <div class="header-badge">Blockchain RPC Load Tester</div>
+  <div class="header-badge">v2 — Blockchain RPC Load Tester</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <span id="mailBadge" style="display:none;font-size:11px;color:var(--green);">✉ email on</span>
+  </div>
 </div>
 
 <div class="main">
-  <!-- SIDEBAR: Config -->
+  <!-- ── SIDEBAR ── -->
   <div class="sidebar">
+
+    <!-- Test type -->
     <div>
-      <div class="section-title">Chain & Endpoint</div>
+      <div class="section-title">Test Type</div>
+      <div class="type-tabs">
+        <div class="type-tab active" onclick="setTestType('benchmark')">Chain</div>
+        <div class="type-tab" onclick="setTestType('rest')">REST</div>
+        <div class="type-tab" onclick="setTestType('websocket')">WebSocket</div>
+      </div>
+    </div>
+
+    <!-- Chain Benchmark config -->
+    <div id="configChain">
+      <div class="section-title">Chain &amp; Endpoint</div>
       <div class="form-group">
         <label>Blockchain</label>
         <select id="chainSelect"></select>
@@ -176,62 +198,198 @@
         <label>RPC Endpoint URL</label>
         <input type="text" id="endpointInput" placeholder="https://..." />
       </div>
-
       <div class="collapsible-header" onclick="toggleCollapsible('extraHeaders')">
         <span>Extra Headers (optional)</span>
         <span id="extraHeadersArrow">▶</span>
       </div>
       <div class="collapsible-content" id="extraHeaders">
-        <div class="form-group">
-          <label>JSON (e.g. {"Authorization": "Bearer ..."})</label>
-          <textarea id="extraHeadersInput" rows="3" placeholder='{"project_id": "your_key"}'
-            style="resize:vertical; font-family: monospace; font-size: 12px;"></textarea>
+        <div class="form-group" style="margin-top:4px;">
+          <label>JSON object</label>
+          <textarea id="extraHeadersInput" rows="2" placeholder='{"project_id":"key"}' style="resize:vertical;font-family:monospace;font-size:11px;"></textarea>
         </div>
       </div>
     </div>
 
+    <!-- REST config -->
+    <div id="configRest" style="display:none;">
+      <div class="section-title">REST Target</div>
+      <div class="form-group">
+        <label>Base URL</label>
+        <input type="text" id="restBaseUrl" placeholder="https://api.example.com" />
+      </div>
+      <div class="collapsible-header" onclick="toggleCollapsible('restHeaders')">
+        <span>Base Headers (optional)</span><span id="restHeadersArrow">▶</span>
+      </div>
+      <div class="collapsible-content" id="restHeaders">
+        <div class="form-group" style="margin-top:4px;">
+          <textarea id="restHeadersInput" rows="2" placeholder='{"Authorization":"Bearer ..."}' style="resize:vertical;font-family:monospace;font-size:11px;"></textarea>
+        </div>
+      </div>
+      <div class="section-title" style="margin-top:8px;">Endpoints</div>
+      <div id="restEndpointList"></div>
+      <button class="btn btn-secondary" style="width:100%;font-size:11px;margin-top:4px;" onclick="addRestEndpoint()">+ Add Endpoint</button>
+    </div>
+
+    <!-- WebSocket config -->
+    <div id="configWs" style="display:none;">
+      <div class="section-title">WebSocket</div>
+      <div class="form-group">
+        <label>WS Endpoint</label>
+        <input type="text" id="wsEndpoint" placeholder="wss://..." />
+      </div>
+      <div class="form-group">
+        <label>Mode</label>
+        <select id="wsMode">
+          <option value="jsonrpc">JSON-RPC</option>
+          <option value="raw">Raw JSON</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Connections</label>
+          <input type="number" id="wsConnections" value="3" min="1" max="50" />
+        </div>
+        <div class="form-group">
+          <label>Rate / conn</label>
+          <input type="number" id="wsRate" value="5" min="1" max="100" />
+        </div>
+      </div>
+      <div class="section-title" style="margin-top:4px;">Messages</div>
+      <div id="wsMsgList"></div>
+      <button class="btn btn-secondary" style="width:100%;font-size:11px;margin-top:4px;" onclick="addWsMessage()">+ Add Message</button>
+    </div>
+
+    <!-- Test parameters -->
     <div>
       <div class="section-title">Test Parameters</div>
       <div class="form-row">
         <div class="form-group">
           <label>Duration (sec)</label>
-          <input type="number" id="durationInput" value="30" min="5" max="300" />
+          <input type="number" id="durationInput" value="60" min="5" max="86400" />
         </div>
         <div class="form-group">
           <label>Target RPS</label>
           <input type="number" id="rpsInput" value="20" min="1" max="1000" />
         </div>
       </div>
-      <div class="form-group">
-        <label>Max Concurrency</label>
-        <input type="number" id="concurrencyInput" value="30" min="1" max="200" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max Concurrency</label>
+          <input type="number" id="concurrencyInput" value="30" min="1" max="200" />
+        </div>
+        <div class="form-group">
+          <label>Cooldown (sec)</label>
+          <input type="number" id="cooldownInput" value="300" min="0" max="3600" title="Cooldown between queued tests" />
+        </div>
       </div>
     </div>
 
-    <div id="methodPreview">
-      <div class="section-title">Method Mix</div>
-      <div id="methodList" style="display:flex; flex-direction:column; gap:4px;"></div>
+    <!-- Fail Thresholds -->
+    <div>
+      <div class="collapsible-header" onclick="toggleCollapsible('thresholds')">
+        <span class="section-title" style="margin:0;">Fail Thresholds</span>
+        <span id="thresholdsArrow">▶</span>
+      </div>
+      <div class="collapsible-content" id="thresholds">
+        <div class="form-row" style="margin-top:6px;">
+          <div class="form-group">
+            <label>Max Latency (ms)</label>
+            <input type="number" id="threshMaxLatency" placeholder="none" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Max Error Rate (%)</label>
+            <input type="number" id="threshMaxErrorRate" placeholder="none" min="0" max="100" step="0.1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Fail on HTTP status codes (comma-separated)</label>
+          <input type="text" id="threshFailCodes" placeholder="500,502,503,504" />
+        </div>
+        <div style="display:flex;gap:12px;font-size:12px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:5px;color:var(--text);margin:0;font-size:12px;">
+            <input type="checkbox" id="threshFailJsonRpc" checked style="width:auto;margin:0;" />
+            Fail on JSON-RPC error
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;color:var(--text);margin:0;font-size:12px;">
+            <input type="checkbox" id="threshFailHttp" checked style="width:auto;margin:0;" />
+            Fail on HTTP errors
+          </label>
+        </div>
+      </div>
     </div>
 
-    <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
-      <button class="btn btn-primary btn-full" id="startBtn" onclick="startBenchmark()">
-        ▶ Start Benchmark
-      </button>
-      <button class="btn btn-danger btn-full" id="stopBtn" onclick="stopBenchmark()" disabled>
-        ⏹ Stop
-      </button>
+    <!-- Method Mix (chain only) -->
+    <div id="methodPreview">
+      <div class="section-title">Method Mix (weights)</div>
+      <div id="methodList" style="display:flex;flex-direction:column;gap:2px;"></div>
     </div>
+
+    <!-- Email Report -->
+    <div>
+      <div class="collapsible-header" onclick="toggleCollapsible('emailConfig')">
+        <span class="section-title" style="margin:0;">Email Report</span>
+        <span id="emailConfigArrow">▶</span>
+      </div>
+      <div class="collapsible-content" id="emailConfig">
+        <div style="margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text);font-size:12px;margin:0 0 8px;cursor:pointer;">
+            <input type="checkbox" id="emailEnabled" style="width:auto;margin:0;" onchange="saveEmailSettings();" />
+            Send report via email when done
+          </label>
+          <div class="form-group" style="margin:0;">
+            <label>Recipient address</label>
+            <input type="email" id="emailTo" placeholder="you@example.com" oninput="saveEmailSettings();" />
+          </div>
+          <div id="smtpWarning" style="display:none;margin-top:5px;font-size:10px;color:var(--yellow);">
+            ⚠ SMTP not configured in .env — email won't be sent without SMTP_HOST + SMTP_USER.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Action buttons -->
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary" id="startBtn" style="flex:2;" onclick="startBenchmark(false)">▶ Start</button>
+        <button class="btn btn-warning" id="queueBtn" style="flex:1;" onclick="startBenchmark(true)" title="Add to queue">⏱ Queue</button>
+        <button class="btn btn-danger" id="stopBtn" onclick="stopBenchmark()" disabled style="flex:1;">⏹</button>
+      </div>
+      <button id="downloadBtn" class="btn btn-secondary btn-full" style="display:none;" onclick="downloadReport()">⬇ Download Report</button>
+    </div>
+
+    <!-- Queue status -->
+    <div id="queuePanel" style="display:none;">
+      <div class="section-title">Queue</div>
+      <div class="queue-panel">
+        <div id="queueStatus" style="font-size:11px;color:var(--muted);margin-bottom:6px;"></div>
+        <div id="queueItems"></div>
+        <div id="cooldownSection" style="display:none;">
+          <div style="font-size:11px;color:var(--yellow);margin-top:6px;" id="cooldownText"></div>
+          <div class="cooldown-bar"><div class="cooldown-fill" id="cooldownFill" style="width:100%;"></div></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- MAIN CONTENT -->
+  <!-- ── MAIN CONTENT ── -->
   <div class="content">
-    <!-- Status -->
+
+    <!-- Reconnect banner -->
+    <div id="reconnectBanner" class="reconnect-banner" style="display:none;">
+      <span style="color:var(--accent);">⚡</span>
+      <span id="reconnectText">A test is running in the background.</span>
+      <button class="btn btn-secondary" style="margin-left:auto;font-size:11px;padding:4px 10px;" onclick="reconnectSession()">Reconnect</button>
+    </div>
+
+    <!-- Status bar -->
     <div id="statusBar" class="status-bar">
       <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Configure a test and click Start Benchmark.</span>
-      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
-        <div style="font-size:12px; color:var(--muted);" id="progressInfo"></div>
-        <button id="downloadBtn" class="btn btn-secondary" style="display:none; font-size:12px; padding:5px 12px;" onclick="downloadReport()">⬇ Download Report</button>
+      <span id="statusText">Configure a test and click Start.</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--muted);" id="progressInfo"></span>
       </div>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
@@ -240,6 +398,7 @@
     <div class="tabs">
       <div class="tab active" onclick="switchTab('live')">Live</div>
       <div class="tab" onclick="switchTab('methods')">Methods</div>
+      <div class="tab" onclick="switchTab('queue')">Queue</div>
       <div class="tab" onclick="switchTab('history')">History</div>
     </div>
 
@@ -248,70 +407,39 @@
       <div id="emptyState" class="empty-state">
         <div class="empty-state-icon">⚡</div>
         <h3>Ready to benchmark</h3>
-        <p>Select a chain, enter your RPC endpoint, and click Start Benchmark.</p>
+        <p>Select a chain, enter your RPC endpoint, and click Start.</p>
       </div>
-
       <div id="liveContent" style="display:none;">
         <div class="kpi-grid" id="kpiGrid">
-          <div class="kpi-card">
-            <div class="kpi-label">Current RPS</div>
-            <div class="kpi-value accent" id="kpiRPS">—</div>
-            <div class="kpi-unit">req/sec</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">p50 Latency</div>
-            <div class="kpi-value green" id="kpiP50">—</div>
-            <div class="kpi-unit">ms</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">p95 Latency</div>
-            <div class="kpi-value yellow" id="kpiP95">—</div>
-            <div class="kpi-unit">ms</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">p99 Latency</div>
-            <div class="kpi-value red" id="kpiP99">—</div>
-            <div class="kpi-unit">ms</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Error Rate</div>
-            <div class="kpi-value" id="kpiErrorRate">—</div>
-            <div class="kpi-unit">%</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Total Requests</div>
-            <div class="kpi-value accent" id="kpiTotal">—</div>
-            <div class="kpi-unit">requests</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">In-Flight</div>
-            <div class="kpi-value" id="kpiInFlight">—</div>
-            <div class="kpi-unit">concurrent</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Sync Lag</div>
-            <div class="kpi-value" id="kpiSyncLag">—</div>
-            <div class="kpi-unit" id="kpiSyncLagUnit">blocks</div>
+          <div class="kpi-card"><div class="kpi-label">Current RPS</div><div class="kpi-value accent" id="kpiRPS">—</div><div class="kpi-unit">req/sec</div></div>
+          <div class="kpi-card"><div class="kpi-label">p50 Latency</div><div class="kpi-value green" id="kpiP50">—</div><div class="kpi-unit">ms</div></div>
+          <div class="kpi-card"><div class="kpi-label">p95 Latency</div><div class="kpi-value yellow" id="kpiP95">—</div><div class="kpi-unit">ms</div></div>
+          <div class="kpi-card"><div class="kpi-label">p99 Latency</div><div class="kpi-value red" id="kpiP99">—</div><div class="kpi-unit">ms</div></div>
+          <div class="kpi-card"><div class="kpi-label">Error Rate</div><div class="kpi-value" id="kpiErrorRate">—</div><div class="kpi-unit">%</div></div>
+          <div class="kpi-card"><div class="kpi-label">Total Requests</div><div class="kpi-value accent" id="kpiTotal">—</div><div class="kpi-unit">requests</div></div>
+          <div class="kpi-card"><div class="kpi-label">In-Flight</div><div class="kpi-value" id="kpiInFlight">—</div><div class="kpi-unit">concurrent</div></div>
+          <div class="kpi-card"><div class="kpi-label">Sync Lag</div><div class="kpi-value" id="kpiSyncLag">—</div><div class="kpi-unit" id="kpiSyncUnit">blocks</div></div>
+        </div>
+        <!-- WS-specific KPIs -->
+        <div id="wsKpiRow" style="display:none;margin-top:10px;">
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-label">Sent</div><div class="kpi-value accent" id="kpiWsSent">—</div><div class="kpi-unit">msg/sec</div></div>
+            <div class="kpi-card"><div class="kpi-label">Received</div><div class="kpi-value green" id="kpiWsRecv">—</div><div class="kpi-unit">msg/sec</div></div>
+            <div class="kpi-card"><div class="kpi-label">Connections</div><div class="kpi-value" id="kpiWsConn">—</div></div>
+            <div class="kpi-card"><div class="kpi-label">Timeouts</div><div class="kpi-value red" id="kpiWsTimeout">—</div></div>
           </div>
         </div>
+        <!-- Fail breakdown -->
+        <div id="failBreakdownRow" style="display:none;margin-top:10px;">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Fail Reasons (this second)</div>
+          <div id="failBreakdownContent" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
 
-        <div class="chart-grid" style="margin-top:16px;">
-          <div class="chart-card">
-            <div class="chart-title">Requests Per Second</div>
-            <div class="chart-container"><canvas id="rpsChart"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Latency Percentiles (ms)</div>
-            <div class="chart-container"><canvas id="latencyChart"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Error Rate (%)</div>
-            <div class="chart-container"><canvas id="errorChart"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">In-Flight Requests</div>
-            <div class="chart-container"><canvas id="inflightChart"></canvas></div>
-          </div>
+        <div class="chart-grid" style="margin-top:14px;">
+          <div class="chart-card"><div class="chart-title">Requests / Messages Per Second</div><div class="chart-container"><canvas id="rpsChart"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">Latency Percentiles (ms)</div><div class="chart-container"><canvas id="latencyChart"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">Error Rate (%)</div><div class="chart-container"><canvas id="errorChart"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">In-Flight / Connections</div><div class="chart-container"><canvas id="inflightChart"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -324,23 +452,27 @@
           <table>
             <thead>
               <tr>
-                <th>Method</th>
-                <th>Category</th>
-                <th>Requests</th>
-                <th>Errors</th>
-                <th>Err %</th>
-                <th>p50 ms</th>
-                <th>p95 ms</th>
-                <th>p99 ms</th>
-                <th>avg ms</th>
-                <th>min ms</th>
-                <th>max ms</th>
+                <th>Method</th><th>Cat</th>
+                <th>Requests</th><th>Errors</th><th>Err%</th>
+                <th>p50</th><th>p95</th><th>p99</th><th>avg</th><th>min</th><th>max</th>
+                <th>Fail Reasons</th>
               </tr>
             </thead>
             <tbody id="methodTableBody">
-              <tr><td colspan="11" style="text-align:center; color:var(--muted); padding:32px;">No data yet. Start a benchmark to see method breakdown.</td></tr>
+              <tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">No data yet.</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUEUE TAB -->
+    <div id="tab-queue" class="tab-panel">
+      <div id="queueTabContent">
+        <div class="empty-state" style="padding:40px;">
+          <div class="empty-state-icon">⏱</div>
+          <h3>Queue is empty</h3>
+          <p>Add tests to the queue using the Queue button in the sidebar.</p>
         </div>
       </div>
     </div>
@@ -350,40 +482,40 @@
       <div id="historyEmpty" class="empty-state" style="padding:40px;">
         <div class="empty-state-icon">📊</div>
         <h3>No test history</h3>
-        <p>Completed tests will appear here.</p>
+        <p>Completed tests appear here.</p>
       </div>
-      <div id="historyList" class="history-list"></div>
+      <div id="historyList"></div>
     </div>
+
   </div>
 </div>
 
 <script>
 // ============================================================
-// APP STATE
+// STATE
 // ============================================================
 let chains = {};
 let currentSessionId = null;
-let eventSource = null;
+let currentEventSource = null;
+let queueEventSource = null;
 let testHistory = JSON.parse(localStorage.getItem('benchmark_history') || '[]');
-let currentDuration = 30;
-let testStartTime = null;
+let currentDuration = 60;
 let progressTimer = null;
 let lastSummary = null;
+let testType = 'benchmark'; // 'benchmark' | 'rest' | 'websocket'
+let isWsMode = false;
+let _lastQueueSessionId = null; // track queue session changes for auto-subscribe
 
-// Chart data
 const MAX_POINTS = 60;
-const chartData = {
-  labels: [],
-  rps: [], p50: [], p95: [], p99: [],
-  errorRate: [], inFlight: [],
-};
-
 let rpsChart, latencyChart, errorChart, inflightChart;
+let restEndpoints = []; // { method, path, weight, body, name }
+let wsMessages = []; // { name, params, weight }
 
 // ============================================================
 // INIT
 // ============================================================
 async function init() {
+  // Load chains
   const res = await fetch('/api/chains');
   const list = await res.json();
   list.forEach(c => chains[c.id] = c);
@@ -391,37 +523,302 @@ async function init() {
   const sel = document.getElementById('chainSelect');
   list.forEach(c => {
     const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = c.name;
+    opt.value = c.id; opt.textContent = c.name;
     sel.appendChild(opt);
   });
-
-  sel.addEventListener('change', () => updateChainUI());
+  sel.addEventListener('change', updateChainUI);
   updateChainUI();
+
+  // Load email settings from localStorage (persisted)
+  loadEmailSettings();
+
+  // Check SMTP readiness from server
+  try {
+    const mc = await fetch('/api/config/mail').then(r => r.json());
+    document.getElementById('smtpWarning').style.display = mc.smtpReady ? 'none' : '';
+    if (mc.defaultTo && !document.getElementById('emailTo').value) {
+      document.getElementById('emailTo').value = mc.defaultTo;
+    }
+    const b = document.getElementById('mailBadge');
+    if (mc.smtpReady) { b.style.display = ''; b.title = 'SMTP configured'; }
+  } catch { /* ignore */ }
+
+  // Check running session
+  try {
+    const sessions = await fetch('/api/sessions').then(r => r.json());
+    const running = sessions.find(s => s.status === 'running');
+    if (running) {
+      const banner = document.getElementById('reconnectBanner');
+      banner.style.display = 'flex';
+      document.getElementById('reconnectText').textContent =
+        `Test running: ${running.chainName || running.type} @ ${running.endpoint}`;
+      banner._sessionId = running.id;
+    }
+  } catch { /* ignore */ }
+
   renderHistory();
   initCharts();
+  subscribeQueue();
 }
 
+function reconnectSession() {
+  const banner = document.getElementById('reconnectBanner');
+  const sid = banner._sessionId;
+  if (!sid) return;
+  banner.style.display = 'none';
+  currentSessionId = sid;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('liveContent').style.display = 'block';
+  document.getElementById('stopBtn').disabled = false;
+  document.getElementById('startBtn').disabled = true;
+  setStatus('running', 'Reconnected to running test...');
+  subscribeSession(sid);
+}
+
+// ============================================================
+// QUEUE SSE
+// ============================================================
+function subscribeQueue() {
+  if (queueEventSource) queueEventSource.close();
+  queueEventSource = new EventSource('/api/queue/stream');
+  queueEventSource.addEventListener('queue', e => {
+    updateQueueUI(JSON.parse(e.data));
+  });
+}
+
+function updateQueueUI(status) {
+  // Auto-subscribe when queue starts a new test session
+  // This is what makes queued tests appear in history
+  if (status.currentSessionId && status.currentSessionId !== _lastQueueSessionId) {
+    _lastQueueSessionId = status.currentSessionId;
+    // Only auto-subscribe if we're not already watching a different active session
+    if (!currentSessionId || currentSessionId !== status.currentSessionId) {
+      _autoSubscribeQueueSession(status.currentSessionId);
+    }
+  }
+
+  const panel = document.getElementById('queuePanel');
+  const hasItems = status.pending.length > 0 || status.running;
+  panel.style.display = hasItems ? 'block' : 'none';
+
+  const statusEl = document.getElementById('queueStatus');
+  if (status.running) {
+    statusEl.textContent = `Running: ${status.currentSessionId?.slice(0, 16)}...`;
+    statusEl.style.color = 'var(--green)';
+  } else if (status.cooldownEndsAt) {
+    const remaining = Math.max(0, Math.round((status.cooldownEndsAt - Date.now()) / 1000));
+    statusEl.textContent = `Cooldown: ${remaining}s remaining`;
+    statusEl.style.color = 'var(--yellow)';
+  } else {
+    statusEl.textContent = `${status.pending.length} test(s) pending`;
+    statusEl.style.color = 'var(--muted)';
+  }
+
+  // Cooldown bar
+  const coolSection = document.getElementById('cooldownSection');
+  if (status.cooldownEndsAt) {
+    coolSection.style.display = 'block';
+    const total = status.cooldownMs || 300000;
+    const remaining = status.cooldownEndsAt - Date.now();
+    const pct = Math.max(0, (remaining / total) * 100);
+    document.getElementById('cooldownFill').style.width = pct + '%';
+    const secs = Math.max(0, Math.round(remaining / 1000));
+    document.getElementById('cooldownText').textContent = `Next test in ${secs}s`;
+  } else {
+    coolSection.style.display = 'none';
+  }
+
+  // Queue items
+  const itemsEl = document.getElementById('queueItems');
+  itemsEl.innerHTML = '';
+  status.pending.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'queue-item';
+    div.innerHTML = `
+      <div>
+        <span class="queue-item-name">${item.chainName || item.type}</span>
+        <span class="queue-item-info"> — ${item.duration}s</span>
+      </div>
+      <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px;" onclick="removeFromQueue('${item.id}')">✕</button>`;
+    itemsEl.appendChild(div);
+  });
+
+  // Queue tab
+  updateQueueTab(status);
+}
+
+function updateQueueTab(status) {
+  const el = document.getElementById('queueTabContent');
+  if (!status.running && status.pending.length === 0) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-state-icon">⏱</div><h3>Queue is empty</h3><p>Add tests to the queue using the Queue button.</p></div>`;
+    return;
+  }
+
+  let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  if (status.running) {
+    html += `<div class="history-item" style="border-color:var(--green);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--green);font-weight:600;">▶ Currently Running</span>
+        <span style="font-size:11px;color:var(--muted);">${status.currentSessionId?.slice(0,20)}...</span>
+      </div>
+    </div>`;
+  }
+  if (status.cooldownEndsAt) {
+    const secs = Math.max(0, Math.round((status.cooldownEndsAt - Date.now()) / 1000));
+    html += `<div class="history-item" style="border-color:var(--yellow);">
+      <div style="color:var(--yellow);font-size:12px;">⏸ Cooldown — ${secs}s until next test</div>
+      <div class="cooldown-bar" style="margin-top:6px;"><div class="cooldown-fill" style="width:${Math.max(0,(status.cooldownEndsAt-Date.now())/(status.cooldownMs||300000)*100)}%;"></div></div>
+    </div>`;
+  }
+  status.pending.forEach((item, i) => {
+    html += `<div class="history-item">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-weight:600;">#${i+1} — ${item.chainName || item.type}</span>
+        <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px;" onclick="removeFromQueue('${item.id}')">Remove</button>
+      </div>
+      <div class="history-stats" style="margin-top:4px;">
+        <div>Duration <span>${item.duration}s</span></div>
+        <div>Type <span>${item.type}</span></div>
+        <div>Endpoint <span style="font-family:monospace;font-size:10px;">${(item.endpoint||'').slice(0,30)}</span></div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function removeFromQueue(id) {
+  await fetch(`/api/queue/${id}`, { method: 'DELETE' });
+}
+
+// ============================================================
+// CHAIN UI
+// ============================================================
 function updateChainUI() {
   const chain = chains[document.getElementById('chainSelect').value];
   if (!chain) return;
   document.getElementById('endpointInput').value = chain.defaultEndpoint || '';
+  if (chain.extraHeaders) {
+    document.getElementById('extraHeadersInput').value = JSON.stringify(chain.extraHeaders, null, 2);
+    document.getElementById('extraHeaders').classList.add('open');
+    document.getElementById('extraHeadersArrow').textContent = '▼';
+  }
+  renderMethodList(chain);
+}
 
-  const methodList = document.getElementById('methodList');
-  methodList.innerHTML = '';
+function renderMethodList(chain) {
+  const el = document.getElementById('methodList');
+  el.innerHTML = '';
+  const totalWeight = chain.methods.reduce((s, m) => s + m.weight, 0);
   chain.methods.forEach(m => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:3px 0;';
-    const totalWeight = chain.methods.reduce((s, x) => s + x.weight, 0);
     const pct = Math.round((m.weight / totalWeight) * 100);
-    const catClass = { light: 'badge-light', medium: 'badge-medium', heavy: 'badge-heavy' }[m.category] || '';
+    const catClass = { light:'badge-light', medium:'badge-medium', heavy:'badge-heavy' }[m.category] || '';
+    const row = document.createElement('div');
+    row.className = 'weight-row';
     row.innerHTML = `
-      <span style="color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="${m.name}">${m.name}</span>
-      <span style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+      <span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;font-size:11px;" title="${m.name}">${m.name}</span>
+      <span style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
         <span class="badge ${catClass}">${m.category}</span>
-        <span style="color:var(--muted);">${pct}%</span>
+        <input type="number" min="0" max="1000" value="${m.weight}" style="width:48px;padding:2px 4px;font-size:11px;text-align:center;" data-method="${m.name}" oninput="updateMethodWeightLabel(this,${totalWeight})" title="Weight" />
+        <span style="color:var(--muted);width:28px;font-size:10px;" id="wpct-${CSS.escape(m.name)}">${pct}%</span>
       </span>`;
-    methodList.appendChild(row);
+    el.appendChild(row);
+  });
+}
+
+function updateMethodWeightLabel(input, _ignored) {
+  const el = document.getElementById('methodList');
+  const inputs = [...el.querySelectorAll('input[type=number]')];
+  const total = inputs.reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+  inputs.forEach(i => {
+    const pct = total > 0 ? Math.round(((parseInt(i.value)||0) / total) * 100) : 0;
+    const id = 'wpct-' + CSS.escape(i.dataset.method);
+    const span = document.getElementById(id);
+    if (span) span.textContent = pct + '%';
+  });
+}
+
+function getMethodWeights() {
+  const el = document.getElementById('methodList');
+  if (!el) return null;
+  const inputs = [...el.querySelectorAll('input[type=number]')];
+  if (!inputs.length) return null;
+  const weights = {};
+  inputs.forEach(i => { weights[i.dataset.method] = parseInt(i.value) || 0; });
+  return weights;
+}
+
+// ============================================================
+// TEST TYPE
+// ============================================================
+function setTestType(type) {
+  testType = type;
+  isWsMode = type === 'websocket';
+
+  document.querySelectorAll('.type-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['benchmark','rest','websocket'][i] === type);
+  });
+
+  document.getElementById('configChain').style.display = type === 'benchmark' ? '' : 'none';
+  document.getElementById('configRest').style.display = type === 'rest' ? '' : 'none';
+  document.getElementById('configWs').style.display = type === 'websocket' ? '' : 'none';
+  document.getElementById('methodPreview').style.display = type === 'benchmark' ? '' : 'none';
+
+  // For WS, concurrency/rps inputs are less relevant
+  document.getElementById('rpsInput').parentElement.style.opacity = type === 'websocket' ? '0.4' : '1';
+  document.getElementById('concurrencyInput').parentElement.style.opacity = type === 'websocket' ? '0.4' : '1';
+}
+
+// ============================================================
+// REST ENDPOINT BUILDER
+// ============================================================
+function addRestEndpoint() {
+  restEndpoints.push({ method: 'GET', path: '/', weight: 1, body: null, name: '' });
+  renderRestEndpoints();
+}
+function removeRestEndpoint(i) {
+  restEndpoints.splice(i, 1);
+  renderRestEndpoints();
+}
+function renderRestEndpoints() {
+  const el = document.getElementById('restEndpointList');
+  el.innerHTML = '';
+  restEndpoints.forEach((ep, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:60px 1fr 50px 24px;gap:4px;align-items:center;margin-bottom:4px;';
+    row.innerHTML = `
+      <select style="padding:4px;font-size:11px;" onchange="restEndpoints[${i}].method=this.value">
+        ${['GET','POST','PUT','DELETE','PATCH'].map(m => `<option${ep.method===m?' selected':''}>${m}</option>`).join('')}
+      </select>
+      <input type="text" value="${ep.path}" placeholder="/path" style="font-size:11px;padding:4px 6px;" oninput="restEndpoints[${i}].path=this.value;restEndpoints[${i}].name=this.value;" />
+      <input type="number" value="${ep.weight}" min="1" max="999" style="font-size:11px;padding:4px;text-align:center;" oninput="restEndpoints[${i}].weight=parseInt(this.value)||1" title="Weight" />
+      <button class="btn btn-secondary" style="padding:2px;font-size:11px;width:24px;height:24px;" onclick="removeRestEndpoint(${i})">✕</button>`;
+    el.appendChild(row);
+  });
+}
+
+// ============================================================
+// WEBSOCKET MESSAGE BUILDER
+// ============================================================
+function addWsMessage() {
+  wsMessages.push({ name: 'method_name', params: [], weight: 1 });
+  renderWsMessages();
+}
+function removeWsMessage(i) {
+  wsMessages.splice(i, 1);
+  renderWsMessages();
+}
+function renderWsMessages() {
+  const el = document.getElementById('wsMsgList');
+  el.innerHTML = '';
+  wsMessages.forEach((msg, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 50px 24px;gap:4px;align-items:center;margin-bottom:4px;';
+    row.innerHTML = `
+      <input type="text" value="${msg.name}" placeholder="method name" style="font-size:11px;padding:4px 6px;" oninput="wsMessages[${i}].name=this.value" />
+      <input type="number" value="${msg.weight}" min="1" max="999" style="font-size:11px;padding:4px;text-align:center;" oninput="wsMessages[${i}].weight=parseInt(this.value)||1" title="Weight" />
+      <button class="btn btn-secondary" style="padding:2px;font-size:11px;width:24px;height:24px;" onclick="removeWsMessage(${i})">✕</button>`;
+    el.appendChild(row);
   });
 }
 
@@ -429,58 +826,53 @@ function updateChainUI() {
 // CHARTS
 // ============================================================
 function initCharts() {
-  const defaults = {
+  const def = {
     responsive: true, maintainAspectRatio: false,
     animation: { duration: 0 },
-    plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 10 }, boxWidth: 12 } },
+      tooltip: { mode: 'index', intersect: false }
+    },
     scales: {
-      x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
-      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      x: { ticks: { color: '#8b949e', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: '#21262d' } },
+      y: { ticks: { color: '#8b949e', font: { size: 9 } }, grid: { color: '#21262d' }, beginAtZero: true },
     },
   };
 
   rpsChart = new Chart(document.getElementById('rpsChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'RPS', data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-    options: { ...defaults },
+    data: { labels: [], datasets: [{ label: 'RPS/msg', data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] },
+    options: def,
   });
-
   latencyChart = new Chart(document.getElementById('latencyChart'), {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [
-        { label: 'p50', data: [], borderColor: '#3fb950', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-        { label: 'p95', data: [], borderColor: '#d29922', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-        { label: 'p99', data: [], borderColor: '#f85149', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-      ],
-    },
-    options: { ...defaults },
+    data: { labels: [], datasets: [
+      { label: 'p50', data: [], borderColor: '#3fb950', tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
+      { label: 'p95', data: [], borderColor: '#d29922', tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
+      { label: 'p99', data: [], borderColor: '#f85149', tension: 0.3, pointRadius: 0, borderWidth: 1.5 },
+    ]},
+    options: def,
   });
-
   errorChart = new Chart(document.getElementById('errorChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Error %', data: [], borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-    options: { ...defaults },
+    data: { labels: [], datasets: [{ label: 'Error %', data: [], borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] },
+    options: def,
   });
-
   inflightChart = new Chart(document.getElementById('inflightChart'), {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'In-Flight', data: [], borderColor: '#bc8cff', backgroundColor: 'rgba(188,140,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-    options: { ...defaults },
+    data: { labels: [], datasets: [{ label: 'In-Flight/Conn', data: [], borderColor: '#bc8cff', backgroundColor: 'rgba(188,140,255,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 1.5 }] },
+    options: def,
   });
 }
 
 function pushChartPoint(elapsed, rps, p50, p95, p99, errorRate, inFlight) {
   const label = `${elapsed}s`;
-  const charts = [rpsChart, latencyChart, errorChart, inflightChart];
-  charts.forEach(c => {
+  [rpsChart, latencyChart, errorChart, inflightChart].forEach(c => {
     if (c.data.labels.length >= MAX_POINTS) {
       c.data.labels.shift();
       c.data.datasets.forEach(d => d.data.shift());
     }
   });
-
   rpsChart.data.labels.push(label);
   rpsChart.data.datasets[0].data.push(rps);
   rpsChart.update('none');
@@ -492,7 +884,7 @@ function pushChartPoint(elapsed, rps, p50, p95, p99, errorRate, inFlight) {
   latencyChart.update('none');
 
   errorChart.data.labels.push(label);
-  errorChart.data.datasets[0].data.push(parseFloat(errorRate));
+  errorChart.data.datasets[0].data.push(parseFloat(errorRate) || 0);
   errorChart.update('none');
 
   inflightChart.data.labels.push(label);
@@ -509,77 +901,196 @@ function resetCharts() {
 }
 
 // ============================================================
-// BENCHMARK CONTROL
+// BUILD REQUEST CONFIG
 // ============================================================
-async function startBenchmark() {
-  const chainId = document.getElementById('chainSelect').value;
-  const endpoint = document.getElementById('endpointInput').value.trim();
-  if (!endpoint) { alert('Enter an RPC endpoint URL.'); return; }
-
-  let extraHeaders = {};
-  const headersRaw = document.getElementById('extraHeadersInput').value.trim();
-  if (headersRaw) {
-    try { extraHeaders = JSON.parse(headersRaw); }
-    catch { alert('Invalid JSON in Extra Headers.'); return; }
-  }
-
-  currentDuration = parseInt(document.getElementById('durationInput').value) || 30;
+function buildConfig() {
+  const duration = parseInt(document.getElementById('durationInput').value) || 60;
   const targetRPS = parseInt(document.getElementById('rpsInput').value) || 20;
   const concurrency = parseInt(document.getElementById('concurrencyInput').value) || 30;
 
-  // Reset UI
+  const thresholds = buildThresholds();
+
+  const emailEnabled = document.getElementById('emailEnabled').checked;
+  const emailTo = document.getElementById('emailTo').value.trim();
+  const emailFields = {
+    sendEmail: emailEnabled && !!emailTo,
+    emailTo: emailEnabled ? emailTo : undefined,
+  };
+
+  if (testType === 'websocket') {
+    const endpoint = document.getElementById('wsEndpoint').value.trim();
+    if (!endpoint) { alert('Enter a WebSocket URL (wss://...).'); return null; }
+    return {
+      type: 'websocket',
+      endpoint,
+      wsMode: document.getElementById('wsMode').value,
+      connections: parseInt(document.getElementById('wsConnections').value) || 3,
+      ratePerConn: parseInt(document.getElementById('wsRate').value) || 5,
+      messages: wsMessages.length ? wsMessages : [],
+      duration, thresholds, ...emailFields,
+    };
+  }
+
+  if (testType === 'rest') {
+    const endpoint = document.getElementById('restBaseUrl').value.trim();
+    if (!endpoint) { alert('Enter a base URL.'); return null; }
+    if (!restEndpoints.length) { alert('Add at least one REST endpoint.'); return null; }
+    let extraHeaders = {};
+    const hRaw = document.getElementById('restHeadersInput').value.trim();
+    if (hRaw) { try { extraHeaders = JSON.parse(hRaw); } catch { alert('Invalid JSON in Base Headers.'); return null; } }
+    return {
+      type: 'rest',
+      endpoint,
+      endpoints: restEndpoints,
+      extraHeaders,
+      targetRPS, duration, concurrency, thresholds, ...emailFields,
+    };
+  }
+
+  // benchmark
+  const chainId = document.getElementById('chainSelect').value;
+  const endpoint = document.getElementById('endpointInput').value.trim();
+  if (!endpoint) { alert('Enter an RPC endpoint URL.'); return null; }
+  let extraHeaders = {};
+  const hRaw = document.getElementById('extraHeadersInput').value.trim();
+  if (hRaw) { try { extraHeaders = JSON.parse(hRaw); } catch { alert('Invalid JSON in Extra Headers.'); return null; } }
+
+  const methodWeights = getMethodWeights();
+
+  return {
+    type: 'benchmark',
+    chainId, endpoint, extraHeaders,
+    targetRPS, duration, concurrency, thresholds, methodWeights, ...emailFields,
+  };
+}
+
+function buildThresholds() {
+  const maxLatencyMs = parseInt(document.getElementById('threshMaxLatency').value) || null;
+  const maxErrorRatePercent = parseFloat(document.getElementById('threshMaxErrorRate').value) || null;
+  const failCodesRaw = document.getElementById('threshFailCodes').value.trim();
+  const failOnStatusCodes = failCodesRaw ? failCodesRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : null;
+  const failOnJsonRpcError = document.getElementById('threshFailJsonRpc').checked;
+  const failOnHttpErrors = document.getElementById('threshFailHttp').checked;
+
+  const t = {};
+  if (maxLatencyMs) t.maxLatencyMs = maxLatencyMs;
+  if (maxErrorRatePercent !== null) t.maxErrorRatePercent = maxErrorRatePercent;
+  if (failOnStatusCodes?.length) t.failOnStatusCodes = failOnStatusCodes;
+  if (!failOnJsonRpcError) t.failOnJsonRpcError = false;
+  if (!failOnHttpErrors) t.allowHttpErrors = true;
+
+  return Object.keys(t).length ? t : null;
+}
+
+// ============================================================
+// BENCHMARK CONTROL
+// ============================================================
+async function startBenchmark(addToQueue = false) {
+  const config = buildConfig();
+  if (!config) return;
+
+  currentDuration = config.duration;
+
+  const url = addToQueue ? '/api/queue/add' : '/api/benchmark/start';
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+
+  if (resp.status === 409 && !addToQueue) {
+    const err = await resp.json();
+    const doQueue = confirm(`${err.error}\n\nAdd to queue instead?`);
+    if (doQueue) return startBenchmark(true);
+    return;
+  }
+
+  const data = await resp.json();
+
+  if (addToQueue) {
+    setStatus('done', `Queued — ${data.status?.pending?.length || '?'} test(s) in queue.`);
+    switchTab('queue');
+    return;
+  }
+
+  if (!resp.ok) {
+    alert(data.error || 'Failed to start benchmark');
+    return;
+  }
+
+  const { sessionId } = data;
+  currentSessionId = sessionId;
+
   resetCharts();
   updateKPIs({});
   setStatus('running', 'Seeding context...');
   document.getElementById('startBtn').disabled = true;
+  document.getElementById('queueBtn').disabled = true;
   document.getElementById('stopBtn').disabled = false;
+  document.getElementById('downloadBtn').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('liveContent').style.display = 'block';
-  testStartTime = Date.now();
+  document.getElementById('wsKpiRow').style.display = isWsMode ? '' : 'none';
+  document.getElementById('kpiGrid').style.display = isWsMode ? 'none' : '';
+  document.getElementById('reconnectBanner').style.display = 'none';
 
   startProgressTimer(currentDuration);
+  subscribeSession(sessionId);
+}
 
-  // Start backend session
-  const res = await fetch('/api/benchmark/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chainId, endpoint, targetRPS, duration: currentDuration, concurrency, extraHeaders }),
-  });
-  const { sessionId } = await res.json();
-  currentSessionId = sessionId;
+function subscribeSession(sessionId) {
+  if (currentEventSource) currentEventSource.close();
+  currentEventSource = new EventSource(`/api/benchmark/stream/${sessionId}`);
 
-  // Subscribe to SSE
-  if (eventSource) eventSource.close();
-  eventSource = new EventSource(`/api/benchmark/stream/${sessionId}`);
-
-  eventSource.addEventListener('status', e => {
+  currentEventSource.addEventListener('status', e => {
     const d = JSON.parse(e.data);
-    if (d.status === 'running') setStatus('running', `Running... (${chainId} @ ${endpoint})`);
+    if (d.status === 'running') setStatus('running', d.message || 'Running...');
   });
 
-  eventSource.addEventListener('progress', e => {
+  currentEventSource.addEventListener('progress', e => {
     const d = JSON.parse(e.data);
-    updateKPIs(d);
-    updateMethodTable(d.methodBreakdown, chains[chainId]);
-    pushChartPoint(d.elapsed, d.rps, d.latency.p50, d.latency.p95, d.latency.p99, d.errorRate, d.inFlight);
+    if (isWsMode) {
+      updateWsKPIs(d);
+    } else {
+      updateKPIs(d);
+      updateMethodTable(d.methodBreakdown, chains[d.chainId]);
+    }
+    const rps = d.rps ?? d.messagesSent ?? 0;
+    const inFlight = d.inFlight ?? d.connections ?? 0;
+    pushChartPoint(d.elapsed, rps, d.latency?.p50||0, d.latency?.p95||0, d.latency?.p99||0, d.errorRate||0, inFlight);
+    updateFailBreakdown(d.failReasons);
   });
 
-  eventSource.addEventListener('done', e => {
+  currentEventSource.addEventListener('done', e => {
     const d = JSON.parse(e.data);
     lastSummary = d;
-    setStatus('done', `Done — ${d.totalRequests} requests, avg ${d.avgRPS} RPS, p95: ${d.latency.p95}ms`);
+    const desc = d.type === 'websocket'
+      ? `Done — ${d.messagesSent} sent, ${d.messagesReceived} received, ${d.avgThroughput} msg/s`
+      : `Done — ${d.totalRequests} requests, avg ${d.avgRPS} RPS, p95: ${d.latency?.p95}ms`;
+    setStatus('done', desc);
     document.getElementById('startBtn').disabled = false;
+    document.getElementById('queueBtn').disabled = false;
     document.getElementById('stopBtn').disabled = true;
     document.getElementById('downloadBtn').style.display = 'inline-flex';
     clearInterval(progressTimer);
     document.getElementById('progressFill').style.width = '100%';
     addHistory(d);
-    eventSource.close();
+    currentEventSource.close();
   });
 
-  eventSource.addEventListener('error', () => {
-    setStatus('error', 'Connection error. Is the server running?');
+  currentEventSource.addEventListener('error', () => {
+    // SSE error might mean test is done or server restarted - try fetching result
+    fetch(`/api/sessions/${sessionId}`).then(r => r.json()).then(data => {
+      if (data.result) {
+        lastSummary = data.result;
+        document.getElementById('downloadBtn').style.display = 'inline-flex';
+        addHistory(data.result);
+      }
+    }).catch(() => {});
+    setStatus('error', 'Connection lost. Test may still be running server-side.');
     document.getElementById('startBtn').disabled = false;
+    document.getElementById('queueBtn').disabled = false;
     document.getElementById('stopBtn').disabled = true;
     clearInterval(progressTimer);
   });
@@ -605,6 +1116,34 @@ function startProgressTimer(duration) {
 }
 
 // ============================================================
+// REPORT DOWNLOAD
+// ============================================================
+async function downloadReport() {
+  if (!currentSessionId) {
+    // Try last summary for a local fallback
+    if (lastSummary) {
+      const html = buildLocalReport(lastSummary);
+      triggerDownload(html, lastSummary);
+    }
+    return;
+  }
+  // Prefer server-generated offline report
+  window.location = `/api/sessions/${currentSessionId}/report`;
+}
+
+function triggerDownload(html, summary) {
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const label = (summary.chainName || summary.type || 'benchmark').replace(/\s+/g, '-').toLowerCase();
+  const ts = new Date(summary.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url;
+  a.download = `benchmark-${label}-${ts}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
 // UI UPDATES
 // ============================================================
 function setStatus(type, msg) {
@@ -614,58 +1153,75 @@ function setStatus(type, msg) {
 }
 
 function updateKPIs(d) {
-  if (!d.rps && d.rps !== 0) return;
-
-  const errPct = parseFloat(d.errorRate);
+  if (!d || (d.rps === undefined && d.totalRequests === undefined)) return;
+  const errPct = parseFloat(d.errorRate || 0);
   document.getElementById('kpiRPS').textContent = d.rps ?? '—';
   document.getElementById('kpiP50').textContent = d.latency?.p50 ?? '—';
   document.getElementById('kpiP95').textContent = d.latency?.p95 ?? '—';
   document.getElementById('kpiP99').textContent = d.latency?.p99 ?? '—';
-
   const errEl = document.getElementById('kpiErrorRate');
   errEl.textContent = d.errorRate ?? '—';
   errEl.className = 'kpi-value ' + (errPct > 5 ? 'red' : errPct > 1 ? 'yellow' : 'green');
-
-  document.getElementById('kpiTotal').textContent = d.totalRequests ?? '—';
+  document.getElementById('kpiTotal').textContent = (d.totalRequests ?? '—').toLocaleString?.() ?? d.totalRequests;
   document.getElementById('kpiInFlight').textContent = d.inFlight ?? '—';
-
-  const syncEl = document.getElementById('kpiSyncLag');
-  if (d.syncLag !== null && d.syncLag !== undefined) {
-    syncEl.textContent = d.syncLag;
-    syncEl.className = 'kpi-value ' + (Math.abs(d.syncLag) > 10 ? 'red' : Math.abs(d.syncLag) > 2 ? 'yellow' : 'green');
+  const sl = d.syncLag;
+  const slEl = document.getElementById('kpiSyncLag');
+  if (sl !== null && sl !== undefined) {
+    slEl.textContent = sl;
+    slEl.className = 'kpi-value ' + (Math.abs(sl) > 10 ? 'red' : Math.abs(sl) > 2 ? 'yellow' : 'green');
   } else {
-    syncEl.textContent = '—';
-    syncEl.className = 'kpi-value';
+    slEl.textContent = '—';
+    slEl.className = 'kpi-value';
   }
+}
+
+function updateWsKPIs(d) {
+  document.getElementById('kpiWsSent').textContent = d.messagesSent ?? '—';
+  document.getElementById('kpiWsRecv').textContent = d.messagesReceived ?? '—';
+  document.getElementById('kpiWsConn').textContent = d.connections ?? '—';
+  document.getElementById('kpiWsTimeout').textContent = d.timeouts ?? '—';
+}
+
+function updateFailBreakdown(failReasons) {
+  if (!failReasons) return;
+  const entries = Object.entries(failReasons).filter(([, v]) => v > 0);
+  const row = document.getElementById('failBreakdownRow');
+  row.style.display = entries.length ? '' : 'none';
+  if (!entries.length) return;
+  const colors = { networkError:'var(--red)', latency:'var(--yellow)', statusCode:'var(--yellow)', jsonRpcError:'var(--purple)', httpError:'var(--red)' };
+  document.getElementById('failBreakdownContent').innerHTML = entries.map(([k, v]) =>
+    `<span style="background:${colors[k]||'var(--muted)'}22;color:${colors[k]||'var(--muted)'};padding:2px 8px;border-radius:12px;font-size:11px;">${k}: ${v}</span>`
+  ).join('');
 }
 
 function updateMethodTable(breakdown, chain) {
   if (!breakdown) return;
   const tbody = document.getElementById('methodTableBody');
   tbody.innerHTML = '';
-
-  const methodCategories = {};
-  if (chain) chain.methods.forEach(m => methodCategories[m.name] = m.category);
+  const cats = {};
+  if (chain) chain.methods?.forEach(m => cats[m.name] = m.category);
 
   for (const [name, stats] of Object.entries(breakdown)) {
     if (!stats.requests) continue;
-    const cat = methodCategories[name] || 'unknown';
-    const catClass = { light: 'badge-light', medium: 'badge-medium', heavy: 'badge-heavy' }[cat] || '';
+    const cat = cats[name] || 'unknown';
+    const catClass = { light:'badge-light', medium:'badge-medium', heavy:'badge-heavy' }[cat] || '';
     const errPct = parseFloat(stats.errorRate);
     const errColor = errPct > 5 ? 'var(--red)' : errPct > 1 ? 'var(--yellow)' : 'var(--green)';
+    const frEntries = Object.entries(stats.failReasons || {}).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="font-family:monospace; font-size:11px;">${name}</td>
+      <td style="font-family:monospace;font-size:10px;" title="${name}">${name.length > 30 ? name.slice(0,28)+'…' : name}</td>
       <td><span class="badge ${catClass}">${cat}</span></td>
       <td>${stats.requests}</td>
-      <td style="color:${stats.errors > 0 ? 'var(--red)' : 'var(--muted)'};">${stats.errors}</td>
+      <td style="color:${stats.errors > 0 ? 'var(--red)':'var(--muted)'};">${stats.errors}</td>
       <td style="color:${errColor};">${stats.errorRate}%</td>
       <td style="color:var(--green);">${stats.p50}</td>
       <td style="color:var(--yellow);">${stats.p95}</td>
       <td style="color:var(--red);">${stats.p99}</td>
       <td>${stats.avg}</td>
       <td style="color:var(--muted);">${stats.min}</td>
-      <td style="color:var(--muted);">${stats.max}</td>`;
+      <td style="color:var(--muted);">${stats.max}</td>
+      <td style="font-size:10px;color:var(--muted);font-family:monospace;">${frEntries||'—'}</td>`;
     tbody.appendChild(tr);
   }
 }
@@ -684,58 +1240,46 @@ function renderHistory() {
   const container = document.getElementById('historyList');
   const empty = document.getElementById('historyEmpty');
   container.innerHTML = '';
-
-  if (!testHistory.length) {
-    empty.style.display = 'block';
-    return;
-  }
+  if (!testHistory.length) { empty.style.display = 'block'; return; }
   empty.style.display = 'none';
 
-  testHistory.forEach((h, i) => {
+  testHistory.forEach(h => {
     const chain = chains[h.chainId];
-    const color = chain?.color || '#58a6ff';
+    const color = chain?.color || h.chainColor || '#58a6ff';
+    const isWs = h.type === 'websocket';
     const div = document.createElement('div');
     div.className = 'history-item';
     div.innerHTML = `
-      <div class="history-item-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <span class="history-chain">
           <span class="chain-dot" style="background:${color};"></span>
-          ${h.chainName}
+          ${h.chainName || (isWs ? 'WebSocket' : 'Custom REST')}
         </span>
         <span class="history-time">${new Date(h.timestamp).toLocaleString()}</span>
       </div>
       <div class="history-stats">
-        <div>Avg RPS <span>${h.avgRPS}</span></div>
-        <div>p95 <span>${h.latency.p95}ms</span></div>
-        <div>p99 <span>${h.latency.p99}ms</span></div>
-        <div>Errors <span style="color:${parseFloat(h.errorRate) > 1 ? 'var(--red)' : 'var(--green)'};">${h.errorRate}%</span></div>
-        <div>Duration <span>${h.duration}s</span></div>
-        <div>Total <span>${h.totalRequests}</span></div>
+        ${isWs
+          ? `<div>Sent <span>${h.messagesSent}</span></div><div>Recv <span>${h.messagesReceived}</span></div><div>p95 <span>${h.latency?.p95}ms</span></div><div>Duration <span>${h.duration}s</span></div>`
+          : `<div>Avg RPS <span>${h.avgRPS}</span></div><div>p95 <span>${h.latency?.p95}ms</span></div><div>p99 <span>${h.latency?.p99}ms</span></div><div>Errors <span style="color:${parseFloat(h.errorRate)>1?'var(--red)':'var(--green)'};">${h.errorRate}%</span></div><div>Duration <span>${h.duration}s</span></div><div>Total <span>${h.totalRequests}</span></div>`
+        }
       </div>
-      <div style="margin-top:6px; font-size:11px; color:var(--muted); font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${h.endpoint}</div>`;
-    div.onclick = () => showHistoryDetail(h);
+      <div style="margin-top:4px;font-size:10px;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.endpoint}</div>`;
+    div.onclick = () => {
+      switchTab('methods');
+      if (!isWs) updateMethodTable(h.methodBreakdown, chain);
+      setStatus('done', `[History] ${h.chainName || h.type} — ${new Date(h.timestamp).toLocaleString()}`);
+    };
     container.appendChild(div);
   });
-}
-
-function showHistoryDetail(h) {
-  switchTab('methods');
-  const chain = chains[h.chainId];
-  updateMethodTable(h.methodBreakdown, chain);
-  setStatus('done', `[History] ${h.chainName} — ${h.totalRequests} requests, avg ${h.avgRPS} RPS, p95: ${h.latency.p95}ms`);
 }
 
 // ============================================================
 // TABS & COLLAPSIBLE
 // ============================================================
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    const tabs = ['live', 'methods', 'history'];
-    t.classList.toggle('active', tabs[i] === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.toggle('active', p.id === `tab-${name}`);
-  });
+  const tabs = ['live', 'methods', 'queue', 'history'];
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', tabs[i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
 }
 
 function toggleCollapsible(id) {
@@ -745,350 +1289,46 @@ function toggleCollapsible(id) {
   if (arrow) arrow.textContent = open ? '▼' : '▶';
 }
 
-// ============================================================
-// REPORT GENERATOR
-// ============================================================
-function downloadReport() {
-  if (!lastSummary) return;
-  const html = buildReportHtml(lastSummary);
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const ts = new Date(lastSummary.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  a.href = url;
-  a.download = `benchmark-${lastSummary.chainId}-${ts}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function buildReportHtml(s) {
-  const chain = chains[s.chainId] || {};
-  const chainColor = chain.color || '#58a6ff';
-  const ts = new Date(s.timestamp);
-
-  // Build method rows
-  const methodRows = Object.entries(s.methodBreakdown).map(([name, m]) => {
-    const cat = (chain.methods || []).find(x => x.name === name)?.category || 'unknown';
-    const catColors = { light: '#3fb950', medium: '#d29922', heavy: '#f85149' };
-    const catColor = catColors[cat] || '#8b949e';
-    const errPct = parseFloat(m.errorRate);
-    const errColor = errPct > 5 ? '#f85149' : errPct > 1 ? '#d29922' : '#3fb950';
-    const successCount = m.requests - m.errors;
-    const successRate = m.requests ? (100 - errPct).toFixed(1) : '0.0';
-    return `
-      <tr>
-        <td style="font-family:monospace;font-size:12px;color:#e6edf3;">${name}</td>
-        <td><span style="background:${catColor}22;color:${catColor};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;text-transform:uppercase;">${cat}</span></td>
-        <td style="text-align:right;">${m.requests.toLocaleString()}</td>
-        <td style="text-align:right;color:#3fb950;">${successCount.toLocaleString()}</td>
-        <td style="text-align:right;color:#3fb950;">${successRate}%</td>
-        <td style="text-align:right;color:${m.errors > 0 ? '#f85149' : '#8b949e'};">${m.errors.toLocaleString()}</td>
-        <td style="text-align:right;color:${errColor};">${m.errorRate}%</td>
-        <td style="text-align:right;color:#3fb950;">${m.p50}</td>
-        <td style="text-align:right;color:#d29922;">${m.p95}</td>
-        <td style="text-align:right;color:#f85149;">${m.p99}</td>
-        <td style="text-align:right;">${m.avg}</td>
-        <td style="text-align:right;color:#8b949e;">${m.min}</td>
-        <td style="text-align:right;color:#8b949e;">${m.max}</td>
-      </tr>`;
-  }).join('');
-
-  // Build method distribution pie data
-  const pieLabels = JSON.stringify(Object.keys(s.methodBreakdown));
-  const pieData = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.requests));
-  const pieColors = JSON.stringify(Object.keys(s.methodBreakdown).map((_, i) => {
-    const palette = ['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#00d4aa','#ff7b72','#ffa657','#79c0ff','#56d364','#e3b341','#ff6e6e'];
-    return palette[i % palette.length];
-  }));
-
-  // Time series for charts
-  const tsLabels = JSON.stringify((s.timeSeries || []).map(p => `${p.elapsed}s`));
-  const tsRPS = JSON.stringify((s.timeSeries || []).map(p => p.rps));
-  const tsP50 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p50 || 0));
-  const tsP95 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p95 || 0));
-  const tsP99 = JSON.stringify((s.timeSeries || []).map(p => p.latency?.p99 || 0));
-  const tsErr = JSON.stringify((s.timeSeries || []).map(p => parseFloat(p.errorRate) || 0));
-
-  // Method latency comparison bar chart
-  const barMethods = JSON.stringify(Object.keys(s.methodBreakdown));
-  const barP50 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p50));
-  const barP95 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p95));
-  const barP99 = JSON.stringify(Object.values(s.methodBreakdown).map(m => m.p99));
-
-  const successTotal = s.totalRequests - s.totalErrors;
-  const successRate = s.totalRequests ? (100 - parseFloat(s.errorRate)).toFixed(1) : '0.0';
-  const errRateColor = parseFloat(s.errorRate) > 5 ? '#f85149' : parseFloat(s.errorRate) > 1 ? '#d29922' : '#3fb950';
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Benchmark Report — ${s.chainName} — ${ts.toLocaleString()}</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
-  h1 { font-size: 24px; font-weight: 700; }
-  h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #8b949e; margin-bottom: 16px; }
-  .header { border-bottom: 1px solid #30363d; padding-bottom: 24px; margin-bottom: 32px; }
-  .header-meta { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 12px; font-size: 13px; color: #8b949e; }
-  .header-meta span { color: #e6edf3; font-weight: 500; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
-  .kpi { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-  .kpi-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .kpi-value { font-size: 30px; font-weight: 700; line-height: 1; }
-  .kpi-unit { font-size: 12px; color: #8b949e; margin-top: 4px; }
-  .section { margin-bottom: 36px; }
-  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
-  .chart-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-  .chart-card.full { grid-column: 1 / -1; }
-  .chart-title { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
-  .chart-wrap { position: relative; height: 220px; }
-  .table-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #21262d; padding: 9px 12px; text-align: left; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #30363d; white-space: nowrap; }
-  th.num { text-align: right; }
-  td { padding: 9px 12px; border-bottom: 1px solid #21262d; font-size: 13px; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
-  .badge { background: #21262d; border: 1px solid #30363d; border-radius: 12px; padding: 2px 10px; font-size: 11px; color: #8b949e; }
-  .chain-pill { display: inline-flex; align-items: center; gap: 8px; background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 4px 14px 4px 10px; font-weight: 600; font-size: 15px; }
-  .chain-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #30363d; font-size: 12px; color: #8b949e; display: flex; justify-content: space-between; }
-  @media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2,1fr); } }
-  .summary-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px; }
-  .summary-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 180px; }
-  .summary-box-label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .summary-box-value { font-size: 13px; font-weight: 500; font-family: monospace; word-break: break-all; }
-</style>
-</head>
-<body>
-<div class="container">
-
-  <!-- HEADER -->
-  <div class="header">
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-      <h1>Benchmark Report</h1>
-      <div class="chain-pill">
-        <span class="chain-dot" style="background:${chainColor};"></span>
-        ${s.chainName}
-      </div>
-      <span class="badge">node101 benchmark</span>
-    </div>
-    <div class="header-meta">
-      <div>Date <span>${ts.toLocaleString()}</span></div>
-      <div>Duration <span>${s.duration}s</span></div>
-      <div>Target RPS <span>${s.config?.targetRPS || '—'}</span></div>
-      <div>Max Concurrency <span>${s.config?.concurrency || '—'}</span></div>
-      <div>Endpoint <span style="font-family:monospace;font-size:12px;">${s.endpoint}</span></div>
-    </div>
-  </div>
-
-  <!-- SUMMARY CONFIG -->
-  <div class="section">
-    <h2>Test Configuration</h2>
-    <div class="summary-row">
-      <div class="summary-box"><div class="summary-box-label">Endpoint</div><div class="summary-box-value">${s.endpoint}</div></div>
-      <div class="summary-box"><div class="summary-box-label">Chain</div><div class="summary-box-value">${s.chainName} (${s.chainId})</div></div>
-      <div class="summary-box"><div class="summary-box-label">Duration</div><div class="summary-box-value">${s.duration} seconds</div></div>
-      <div class="summary-box"><div class="summary-box-label">Target RPS</div><div class="summary-box-value">${s.config?.targetRPS || '—'}</div></div>
-      <div class="summary-box"><div class="summary-box-label">Max Concurrency</div><div class="summary-box-value">${s.config?.concurrency || '—'}</div></div>
-    </div>
-  </div>
-
-  <!-- KPI CARDS -->
-  <div class="section">
-    <h2>Summary Metrics</h2>
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="kpi-label">Avg RPS</div>
-        <div class="kpi-value" style="color:#58a6ff;">${s.avgRPS}</div>
-        <div class="kpi-unit">req / sec</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Total Requests</div>
-        <div class="kpi-value" style="color:#58a6ff;">${s.totalRequests.toLocaleString()}</div>
-        <div class="kpi-unit">total</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Successful</div>
-        <div class="kpi-value" style="color:#3fb950;">${successTotal.toLocaleString()}</div>
-        <div class="kpi-unit">${successRate}% success</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Errors</div>
-        <div class="kpi-value" style="color:${errRateColor};">${s.totalErrors.toLocaleString()}</div>
-        <div class="kpi-unit">${s.errorRate}% error rate</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">p50 Latency</div>
-        <div class="kpi-value" style="color:#3fb950;">${s.latency.p50}</div>
-        <div class="kpi-unit">ms (median)</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">p95 Latency</div>
-        <div class="kpi-value" style="color:#d29922;">${s.latency.p95}</div>
-        <div class="kpi-unit">ms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">p99 Latency</div>
-        <div class="kpi-value" style="color:#f85149;">${s.latency.p99}</div>
-        <div class="kpi-unit">ms (tail)</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Avg Latency</div>
-        <div class="kpi-value">${s.latency.avg}</div>
-        <div class="kpi-unit">ms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Min Latency</div>
-        <div class="kpi-value" style="color:#3fb950;">${s.latency.min}</div>
-        <div class="kpi-unit">ms</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Max Latency</div>
-        <div class="kpi-value" style="color:#f85149;">${s.latency.max}</div>
-        <div class="kpi-unit">ms</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TIME SERIES CHARTS -->
-  <div class="section">
-    <h2>Time Series</h2>
-    <div class="chart-grid">
-      <div class="chart-card">
-        <div class="chart-title">Requests Per Second</div>
-        <div class="chart-wrap"><canvas id="rpsChart"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Latency Percentiles (ms)</div>
-        <div class="chart-wrap"><canvas id="latencyChart"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Error Rate (%)</div>
-        <div class="chart-wrap"><canvas id="errorChart"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Method Distribution (by request count)</div>
-        <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid">
-      <div class="chart-card full">
-        <div class="chart-title">Latency by Method (p50 / p95 / p99)</div>
-        <div class="chart-wrap" style="height:280px;"><canvas id="methodLatencyChart"></canvas></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- METHOD TABLE -->
-  <div class="section">
-    <h2>Method Breakdown</h2>
-    <div class="table-card">
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Method</th>
-              <th>Category</th>
-              <th class="num">Requests</th>
-              <th class="num">Success</th>
-              <th class="num">Success %</th>
-              <th class="num">Errors</th>
-              <th class="num">Error %</th>
-              <th class="num">p50 ms</th>
-              <th class="num">p95 ms</th>
-              <th class="num">p99 ms</th>
-              <th class="num">avg ms</th>
-              <th class="num">min ms</th>
-              <th class="num">max ms</th>
-            </tr>
-          </thead>
-          <tbody>${methodRows}</tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="footer">
-    <span>Generated by node101 benchmark</span>
-    <span>${ts.toLocaleString()}</span>
-  </div>
-</div>
-
-<script>
-const chartDefaults = {
-  responsive: true, maintainAspectRatio: false,
-  animation: false,
-  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
-  scales: {
-    x: { ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 15 }, grid: { color: '#21262d' } },
-    y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
-  },
-};
-
-new Chart(document.getElementById('rpsChart'), {
-  type: 'line',
-  data: { labels: ${tsLabels}, datasets: [{ label: 'RPS', data: ${tsRPS}, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-  options: { ...chartDefaults },
-});
-
-new Chart(document.getElementById('latencyChart'), {
-  type: 'line',
-  data: {
-    labels: ${tsLabels},
-    datasets: [
-      { label: 'p50', data: ${tsP50}, borderColor: '#3fb950', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-      { label: 'p95', data: ${tsP95}, borderColor: '#d29922', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-      { label: 'p99', data: ${tsP99}, borderColor: '#f85149', backgroundColor: 'transparent', tension: 0.3, pointRadius: 0 },
-    ],
-  },
-  options: { ...chartDefaults },
-});
-
-new Chart(document.getElementById('errorChart'), {
-  type: 'line',
-  data: { labels: ${tsLabels}, datasets: [{ label: 'Error %', data: ${tsErr}, borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-  options: { ...chartDefaults },
-});
-
-new Chart(document.getElementById('pieChart'), {
-  type: 'doughnut',
-  data: { labels: ${pieLabels}, datasets: [{ data: ${pieData}, backgroundColor: ${pieColors}, borderColor: '#161b22', borderWidth: 2 }] },
-  options: {
-    responsive: true, maintainAspectRatio: false, animation: false,
-    plugins: { legend: { position: 'right', labels: { color: '#8b949e', font: { size: 11 }, padding: 10 } } },
-  },
-});
-
-new Chart(document.getElementById('methodLatencyChart'), {
-  type: 'bar',
-  data: {
-    labels: ${barMethods},
-    datasets: [
-      { label: 'p50', data: ${barP50}, backgroundColor: 'rgba(63,185,80,0.7)', borderRadius: 3 },
-      { label: 'p95', data: ${barP95}, backgroundColor: 'rgba(210,153,34,0.7)', borderRadius: 3 },
-      { label: 'p99', data: ${barP99}, backgroundColor: 'rgba(248,81,73,0.7)', borderRadius: 3 },
-    ],
-  },
-  options: {
-    ...chartDefaults,
-    scales: {
-      x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
-      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' }, title: { display: true, text: 'ms', color: '#8b949e' } },
-    },
-  },
-});
-<\/script>
-</body>
-</html>`;
+// Fallback if server report not available (e.g. session lost)
+function buildLocalReport(s) {
+  return `<!DOCTYPE html><html><head><title>Report</title><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script></head><body style="background:#0d1117;color:#e6edf3;font-family:system-ui,sans-serif;padding:32px;"><h1>Report data available — please use the server download endpoint.</h1><pre style="font-size:11px;margin-top:16px;">${JSON.stringify(s, null, 2)}</pre></body></html>`;
 }
 
 // ============================================================
-// BOOT
+// EMAIL SETTINGS
+// ============================================================
+function saveEmailSettings() {
+  localStorage.setItem('email_enabled', document.getElementById('emailEnabled').checked ? '1' : '');
+  localStorage.setItem('email_to', document.getElementById('emailTo').value.trim());
+}
+
+function loadEmailSettings() {
+  const enabled = localStorage.getItem('email_enabled') === '1';
+  const to = localStorage.getItem('email_to') || '';
+  document.getElementById('emailEnabled').checked = enabled;
+  if (to) document.getElementById('emailTo').value = to;
+}
+
+// ============================================================
+// QUEUE AUTO-SUBSCRIBE (makes queued tests appear in history)
+// ============================================================
+function _autoSubscribeQueueSession(sessionId) {
+  // Silently subscribe to a session started by the queue.
+  // We don't change the UI start/stop buttons — just listen for 'done'
+  // so addHistory() fires and the test shows up in the History tab.
+  const es = new EventSource(`/api/benchmark/stream/${sessionId}`);
+
+  es.addEventListener('done', e => {
+    const d = JSON.parse(e.data);
+    addHistory(d);
+    es.close();
+  });
+
+  es.addEventListener('error', () => es.close());
+}
+
+// ============================================================
+// START
 // ============================================================
 init();
 </script>

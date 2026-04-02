@@ -44,6 +44,23 @@ A blockchain RPC load testing and benchmarking tool that measures the performanc
 
 ---
 
+## What's New in v2
+
+| Feature | Details |
+|---------|---------|
+| **Browser-independent** | Test engine is fully server-side. Closing the tab never stops a test. Reconnect button appears on reload. |
+| **Test queue** | Add multiple tests to a sequential queue. Configurable cooldown between runs (default 5 min). |
+| **Email reports** | HTML report auto-emailed on completion. SMTP config via `.env`. |
+| **Fail thresholds** | Per-test: max latency, HTTP status codes, JSON-RPC errors, max error rate. Fail reason breakdown in reports & UI. |
+| **Method weight editor** | Edit per-method weights in the sidebar before starting a test. |
+| **REST support** | Benchmark any HTTP API — define endpoints with method, path, body, headers, and weight. |
+| **WebSocket testing** | JSON-RPC or raw WS — tracks connection time, message roundtrip latency, reconnects, timeouts. |
+| **Offline reports** | Exported HTML reports bundle Chart.js inline — open without internet. |
+| **Rich tooltips** | Hover on any chart point to see request counts, success/fail split, latency percentiles, fail reasons. |
+| **Server-side reports** | Reports are generated server-side and downloadable via API, enabling email attachments. |
+
+---
+
 ## Installation
 
 ```bash
@@ -53,6 +70,28 @@ npm install
 ```
 
 ---
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill in values:
+
+```bash
+cp .env.example .env
+```
+
+```env
+PORT=3000
+
+# Email (optional — leave SMTP_HOST empty to disable)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=your-app-password
+MAIL_TO=recipient@example.com
+
+# Queue cooldown between sequential tests (seconds, default 300)
+QUEUE_COOLDOWN_SECONDS=300
+```
 
 ## Running
 
@@ -66,17 +105,36 @@ Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
-1. **Select a chain** from the sidebar dropdown.
-2. **Enter an RPC endpoint** (or use the default).
-3. If the endpoint requires authentication, add headers under **Extra Headers** as a JSON object:
-   ```json
-   { "project_id": "your-blockfrost-key" }
-   ```
-4. Set **Duration** (seconds), **Target RPS**, and **Max Concurrency**.
-5. Click **Start Benchmark**.
-6. Monitor the **Live** tab for real-time charts and KPI cards.
-7. Switch to the **Methods** tab for per-method breakdown.
-8. After the run completes, click **Export Report** to download an HTML report.
+### Chain Benchmark (default)
+1. Select **Chain** test type.
+2. Pick a blockchain and enter an RPC endpoint.
+3. Optionally edit per-method weights in the **Method Mix** section.
+4. Set thresholds under **Fail Thresholds** (collapsible).
+5. Click **▶ Start** to run immediately, or **⏱ Queue** to add to the queue.
+
+### Custom REST
+1. Select **REST** test type.
+2. Enter the base URL.
+3. Add endpoints (method, path, weight, optional body/headers).
+4. Click Start or Queue.
+
+### WebSocket
+1. Select **WebSocket** test type.
+2. Enter a `wss://` endpoint.
+3. Choose mode (JSON-RPC or Raw), connection count, and rate per connection.
+4. Add messages/methods with weights.
+5. Click Start or Queue.
+
+### Queue / Sequential Tests
+- **⏱ Queue** adds a test to the sequential queue.
+- Tests run one at a time with a configurable cooldown (default 5 min).
+- View and manage the queue under the **Queue** tab.
+- Example: queue 30 min Ethereum → 30 min Ripple → runs automatically end-to-end.
+
+### Reports
+- Click **⬇ Download Report** after completion — the HTML file is fully self-contained (Chart.js bundled, no internet required).
+- If email is configured, the report is also emailed automatically.
+- Reports include: time-series charts with rich hover tooltips, fail reason breakdown, method-level stats.
 
 ---
 
@@ -208,14 +266,35 @@ Return `{ success: true, result }` on success or `{ success: false, error }` on 
 
 ---
 
+## Fail Thresholds
+
+Configure in the sidebar (collapsible). Applied per-request:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `maxLatencyMs` | number | Requests exceeding this latency count as `latency` failures |
+| `failOnStatusCodes` | `[500,502,...]` | HTTP status codes that count as failures |
+| `failOnJsonRpcError` | bool (default `true`) | Count JSON-RPC `error` responses as failures |
+| `maxErrorRatePercent` | number | Alarm threshold (logged, shown in report) |
+
+Fail reasons are tracked per-second and per-method: `networkError`, `latency`, `statusCode`, `jsonRpcError`, `httpError`.
+
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/chains` | Returns all chain configs and their methods |
-| `POST` | `/api/benchmark/start` | Starts a new benchmark session |
-| `POST` | `/api/benchmark/stop/:sessionId` | Stops a running session |
-| `GET` | `/api/benchmark/stream/:sessionId` | SSE stream of live metrics |
+| `GET` | `/api/chains` | All chain configs |
+| `POST` | `/api/benchmark/start` | Start immediately (returns 409 if busy) |
+| `POST` | `/api/benchmark/stop/:id` | Stop a session |
+| `GET` | `/api/benchmark/stream/:id` | SSE stream of live metrics |
+| `GET` | `/api/sessions` | List all sessions (running + completed) |
+| `GET` | `/api/sessions/:id` | Get session result |
+| `GET` | `/api/sessions/:id/report` | Download offline HTML report |
+| `POST` | `/api/queue/add` | Add test to queue |
+| `GET` | `/api/queue` | Queue status |
+| `DELETE` | `/api/queue/:id` | Remove item from queue |
+| `DELETE` | `/api/queue` | Clear queue |
+| `GET` | `/api/queue/stream` | SSE stream of queue updates |
 
 ### POST `/api/benchmark/start` body
 
@@ -256,9 +335,16 @@ Return `{ success: true, result }` on success or `{ success: false, error }` on 
 
 ```
 node101-benchmark/
-├── server.js        # Express backend — chain configs, benchmark engine, SSE
+├── server.js              # Express routes, session store, queue integration
+├── lib/
+│   ├── chains.js          # Chain definitions (EVM, Bitcoin, Sui, Aptos, TON, TRON, Cardano, XRP)
+│   ├── engine.js          # BenchmarkEngine (JSON-RPC/REST) + WebSocketEngine
+│   ├── queue.js           # TestQueue — sequential execution with cooldown
+│   ├── mailer.js          # SMTP email sender (nodemailer)
+│   └── report.js          # Server-side HTML report generator (offline-capable)
 ├── public/
-│   └── index.html   # Single-page frontend — UI, Chart.js graphs, SSE client
+│   └── index.html         # Single-page frontend
+├── .env.example           # Environment variable template
 └── package.json
 ```
 
